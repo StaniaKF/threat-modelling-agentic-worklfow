@@ -12,6 +12,11 @@ _INSTRUCTIONS = """
     from the threat identification phase (components, trust boundaries, asset flows, threat actors).
     Use this context to inform your assessments.
 
+    The current threats.csv content and business context will be provided to you as input.
+    The business context tells you what's critical, what data is sensitive, and any compliance
+    requirements. Use it to calibrate impact and likelihood appropriately.
+    You do NOT have filesystem access.
+
     For each threat provided, determine:
     - Impact: Critical / High / Medium / Low (damage if the threat is realised)
     - Likelihood: High / Medium / Low (probability of occurrence given the architecture and threat actors)
@@ -21,22 +26,19 @@ _INSTRUCTIONS = """
     - Consider the threat actors' capabilities (from phase 3 data)
     - Consider trust boundary crossings (from phase 4 data)
     - Consider asset sensitivity (from phase 5 data)
+    - Consider the business context: critical components and sensitive data should increase impact scores
     - Use get_current_phase_status() or list_threats() to review stored threat context if needed
 
     Steps:
-    1. FIRST: Read the existing threats.csv file using the filesystem read_file tool.
-    2. Note the file uses PIPE (|) as delimiter. Column order: Date of analysis|Service/Project Feature|STRIDE Category|Element|Threat|Impact|Likelihood|Risk|Attack Method|All Possible Mitigations|Mitigations Already in Place|Mitigations Missing|AI Proposed High-Risk Missing Mitigations to Implement|Remaining Risk
-    3. Assess impact, likelihood, and risk for each threat row.
-    4. MANDATORY FINAL ACTION: Write the COMPLETE updated threats.csv using the filesystem write_file tool.
-       The file uses PIPE (|) as delimiter, NOT commas.
-       You MUST fill in ONLY these three columns for every row:
+    1. Review the threats.csv content provided as input.
+       The file uses PIPE (|) as delimiter. Column order: Date of analysis|Service/Project Feature|STRIDE Category|Element|Threat|Impact|Likelihood|Risk|Attack Method|All Possible Mitigations|Mitigations Already in Place|Mitigations Missing|AI Proposed High-Risk Missing Mitigations to Implement|Remaining Risk
+    2. Assess impact, likelihood, and risk for each threat row.
+    3. Return the COMPLETE updated CSV content (with PIPE delimiters) with these columns filled in:
        - Column 6: "Impact" (Critical / High / Medium / Low)
        - Column 7: "Likelihood" (High / Medium / Low)
        - Column 8: "Risk" (Critical / High / Medium / Low)
-       Keep ALL other columns exactly as they are - do not move, delete, or overwrite any other data.
-       Do NOT leave these columns empty.
+       Keep ALL other columns exactly as they are.
 
-    You MUST complete step 4. If you do not write the updated CSV, your task is NOT complete.
     Do NOT identify new threats or suggest mitigations - that is handled by other agents.
 """
 

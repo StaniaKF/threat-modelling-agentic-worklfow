@@ -9,30 +9,28 @@ _INSTRUCTIONS = """
     Your task: For each identified threat and its possible mitigations, determine which mitigations
     are already in place in the actual AWS environment and which are missing. Then assess remaining risk.
 
-    You have access to:
-    - The threat-modeling-mcp-server with full threat model context
-    - The filesystem to read the architecture diagram and update the CSV
-    - The AWS MCP server to query actual AWS resources and configurations (use aws___call_aws or aws___run_script)
+    You have access to the AWS MCP server to query actual AWS resources and configurations.
+    You do NOT have filesystem access - the threats.csv, architecture diagram, and business context
+    will be provided as input.
+
+    The business context includes AWS account info, resource physical IDs, and known gaps.
+    Use it to target your AWS queries accurately.
 
     Steps:
-    1. Use list_threats() and list_mitigations() to review the full threat model.
-    2. Read the mermaid.md architecture diagram to understand what controls are shown.
-    3. Use the AWS MCP tools to verify actual resource configurations:
+    1. Review the threats and mitigations provided to you as input.
+    2. Review the architecture diagram provided to understand what resources exist.
+    3. Use the business context to identify AWS resource IDs and account details.
+    4. Use the AWS MCP tools to verify actual resource configurations:
        - Check security groups, NACLs, IAM policies, encryption settings, logging configurations, etc.
-       - Use aws___call_aws for individual AWS CLI commands
-       - Use aws___run_script for multi-step checks
-    4. Based on the architecture diagram, AWS resource queries, and standard AWS configurations, determine:
+    5. Based on the architecture diagram and AWS resource queries, determine:
        - Which mitigations are already in place (confirmed via AWS queries or visible in the diagram)
        - Which mitigations are missing
-    5. Assess the remaining risk after considering mitigations in place.
-    6. MANDATORY FINAL ACTION: Read the existing threats.csv file, then update it.
-       The file uses PIPE (|) as delimiter, NOT commas.
-       You MUST fill in these three columns for EVERY row:
+    6. Assess the remaining risk after considering mitigations in place.
+    7. Return the COMPLETE updated CSV content (with PIPE delimiters) with these columns filled in:
        - "Mitigations Already in Place" (what is currently protecting against this threat, semicolons to separate)
        - "Mitigations Missing" (gaps that need to be addressed, semicolons to separate)
        - "Remaining Risk" (Critical / High / Medium / Low - risk level after existing mitigations)
-       Keep all other columns exactly as they are. Do NOT leave these columns empty.
-       Write the COMPLETE updated file back using the filesystem write_file tool.
+       Keep all other columns exactly as they are.
 """
 
 
