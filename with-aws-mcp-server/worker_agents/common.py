@@ -43,6 +43,7 @@ aws_mcp_params = {
     "env": {
         "AWS_PROFILE": os.getenv("AWS_PROFILE"),
     },
+    "client_session_timeout_seconds": 300,
 }
 
 

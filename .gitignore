@@ -12,6 +12,13 @@ wheels/
 # Environment files
 .env
 
+# Project-specific context (not committed - changes per project)
+context.md
+
 # Generated outputs
 threats.csv
 mermaid.md
+
+
+.DS_Store
+/.idea/
