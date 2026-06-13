@@ -26,7 +26,7 @@ _INSTRUCTIONS = """
        The FIRST line MUST be the header row exactly as shown below:
        Date of analysis|Service/Project Feature|STRIDE Category|Element|Threat|Impact|Likelihood|Risk|Attack Method|All Possible Mitigations|Mitigations Already in Place|Mitigations Missing|AI Proposed High-Risk Missing Mitigations to Implement|Remaining Risk
        Each subsequent line is a data row.
-       Fill in only: Date of analysis (today's date), Service/Project Feature, STRIDE Category, Element, Threat, Attack Method.
+       Fill in only: Date of analysis (use the exact date provided by the coordinator), Service/Project Feature, STRIDE Category, Element, Threat, Attack Method.
        Leave the other columns empty - they will be filled by other agents.
 
     You MUST complete steps 1-7. Do not skip any. Never ask the user for input.

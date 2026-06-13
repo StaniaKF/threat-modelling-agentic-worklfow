@@ -1,5 +1,6 @@
 import os
 import asyncio
+from datetime import date
 from contextlib import AsyncExitStack
 
 from agents import Agent, OpenAIChatCompletionsModel, Runner, RunConfig, trace
@@ -38,8 +39,13 @@ def run_config() -> RunConfig:
     )
 
 
-COORDINATOR_INSTRUCTIONS = """
+TODAY = date.today().isoformat()  # e.g. "2025-06-13"
+
+COORDINATOR_INSTRUCTIONS = f"""
     You are a threat modelling coordinator. Your job is to orchestrate specialist agents to produce a comprehensive threat model.
+
+    TODAY'S DATE: {TODAY}
+    Always pass this date to the threat_identification agent so it can use it in the "Date of analysis" column.
 
     You have access to the filesystem MCP server to read/write files, and these agent tools:
     - threat_identification: Identifies threats using STRIDE methodology
@@ -56,6 +62,7 @@ COORDINATOR_INSTRUCTIONS = """
        If context.md does not exist, proceed without it.
     2. Read the mermaid.md architecture diagram using the filesystem read_file tool.
     3. Call threat_identification, passing it:
+       - Today's date ({TODAY}) for the "Date of analysis" column
        - The full content of the mermaid.md diagram
        - The business context from context.md (so it knows what's critical)
        It will return identified threats.
