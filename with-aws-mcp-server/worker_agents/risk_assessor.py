@@ -12,9 +12,14 @@ _INSTRUCTIONS = """
     from the threat identification phase (components, trust boundaries, asset flows, threat actors).
     Use this context to inform your assessments.
 
-    The current threats.csv content and business context will be provided to you as input.
+    The current threats.csv content, business context, and CloudFormation resource definitions
+    will be provided to you as input.
     The business context tells you what's critical, what data is sensitive, and any compliance
     requirements. Use it to calibrate impact and likelihood appropriately.
+    The CloudFormation definitions show actual resource configurations - use them to assess
+    likelihood more accurately (e.g. a threat against an already-encrypted resource is lower
+    likelihood than one against an unencrypted resource). The file may have formatting issues
+    or unresolved imports - ignore those and focus on the resource properties you can see.
     You do NOT have filesystem access.
 
     For each threat provided, determine:

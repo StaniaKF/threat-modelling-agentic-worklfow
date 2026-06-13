@@ -61,30 +61,41 @@ COORDINATOR_INSTRUCTIONS = f"""
        what's critical, what data is sensitive, compliance requirements, and known gaps.
        If context.md does not exist, proceed without it.
     2. Read the mermaid.md architecture diagram using the filesystem read_file tool.
-    3. Call threat_identification, passing it:
+    3. Read the cloud-formation.yaml file using the filesystem read_file tool. This contains
+       actual AWS resource definitions (the Resources section). It may have formatting issues,
+       unresolved imports, or missing parameters - that's fine, the important thing is the
+       resource configurations it contains. If the file does not exist, proceed without it.
+    4. Call threat_identification, passing it:
        - Today's date ({TODAY}) for the "Date of analysis" column
        - The full content of the mermaid.md diagram
        - The business context from context.md (so it knows what's critical)
+       - The CloudFormation resource definitions from cloud-formation.yaml (so it can identify
+         threats based on actual resource configurations, not just the diagram)
        It will return identified threats.
-    4. Write the initial threats.csv using the filesystem write_file tool based on the output from step 3.
+    5. Write the initial threats.csv using the filesystem write_file tool based on the output from step 4.
        Use PIPE (|) as delimiter. Header row:
        Date of analysis|Service/Project Feature|STRIDE Category|Element|Threat|Impact|Likelihood|Risk|Attack Method|All Possible Mitigations|Mitigations Already in Place|Mitigations Missing|AI Proposed High-Risk Missing Mitigations to Implement|Remaining Risk
-    5. Read the threats.csv you just wrote, then call risk_assessment passing it:
+    6. Read the threats.csv you just wrote, then call risk_assessment passing it:
        - The CSV content
        - The business context from context.md (so it can weigh impact appropriately)
+       - The CloudFormation resource definitions (so it can assess likelihood based on actual configs)
        It will return assessments. Update threats.csv with the Impact, Likelihood, and Risk columns.
-    6. Read the updated threats.csv, then call mitigation_planning passing it:
+    7. Read the updated threats.csv, then call mitigation_planning passing it:
        - The CSV content
        - The business context from context.md (so it knows compliance requirements and known gaps)
+       - The CloudFormation resource definitions (so it can propose specific mitigations
+         referencing actual resource properties)
        It will return mitigations. Update threats.csv with the All Possible Mitigations and
        AI Proposed High-Risk Missing Mitigations columns.
-    7. Read the updated threats.csv, then call mitigation_audit passing it:
+    8. Read the updated threats.csv, then call mitigation_audit passing it:
        - The CSV content
        - The mermaid.md diagram content
        - The business context from context.md (so it knows what AWS resources to check)
+       - The CloudFormation resource definitions (so it can cross-reference what should be
+         deployed against what is actually deployed, and identify drift)
        It will query AWS to check what's in place.
        Update threats.csv with the Mitigations Already in Place, Mitigations Missing, and Remaining Risk columns.
-    8. Present the final results clearly.
+    9. Present the final results clearly.
 
     Rules:
     - Execute tools in the exact order above. Each depends on the previous outputs.
