@@ -62,6 +62,28 @@ The coordinator reads this file at startup and passes it to every worker agent s
 
 If `context.md` doesn't exist, the workflow proceeds without it (but results will be less targeted).
 
+## CloudFormation File (`cloud-formation.yaml`)
+
+The `cloud-formation.yaml` file provides the agents with actual AWS resource definitions as additional context alongside the architecture diagram and live AWS queries. It helps agents understand the intended configuration of resources so they can identify threats and propose mitigations more accurately.
+
+This file is **not committed to the repo** (gitignored) because it contains infrastructure details specific to your project.
+
+Create it manually by copying the relevant resource definitions from your CloudFormation stacks into a single file:
+
+- Include all **security-relevant resources**: IAM roles/policies, security groups, Lambda functions, API Gateways, databases, caches, VPCs, S3 buckets, KMS keys, WAF rules, etc.
+- **No need to include** non-security resources like CloudWatch alarms, dashboards, or tags-only resources.
+- **No need for correct formatting** — the agents can parse imperfect YAML. Just paste the resource blocks in.
+- **No parameters section needed** — if your templates use `!ImportValue` or parameter refs that aren't defined in the file, the agents will ignore them or resolve the actual values via the AWS MCP server.
+- Keep it to **one file** with all important resources consolidated.
+
+The coordinator reads this file at startup and passes it to every worker agent so they can:
+- Identify threats based on actual misconfigurations (not assumptions)
+- Assess risk more accurately by knowing what's already configured
+- Propose specific mitigations referencing real resource properties
+- Cross-reference expected configuration against live AWS state to detect drift
+
+If `cloud-formation.yaml` doesn't exist, the workflow proceeds without it.
+
 ## Available commands
 
 | Command        | Description                                      |
