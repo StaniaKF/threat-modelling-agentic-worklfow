@@ -52,8 +52,14 @@ async def main() -> None:
         )
 
         # AWS MCP server - used only by the mitigation auditor
+        # Filter out aws___run_script as it uses call_boto3() which doesn't recognise
+        # standard operation names. The agent should use aws___call_aws instead.
         aws_mcp_server = await stack.enter_async_context(
-            MCPServerStdio(params=aws_mcp_params, client_session_timeout_seconds=300)
+            MCPServerStdio(
+                params=aws_mcp_params,
+                client_session_timeout_seconds=300,
+                tool_filter=lambda tool, ctx: tool.name != "aws___run_script",
+            )
         )
 
         # Warm up AWS MCP server to avoid cold-start delays
