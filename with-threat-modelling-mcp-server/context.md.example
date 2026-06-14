@@ -9,9 +9,9 @@ Brief description of the system's purpose and what data it processes.
 ## Critical Components
 List the components that are most important to protect and why. Include physical id in brackets.
 
-- **API Gateway (lvzpzw2ls1)**: Public-facing entry point. Handles all customer API requests.
-- **Dispatches Lambda**: Core business logic. Processes tariff calculations with sensitive pricing data.
-- **Valkey Cache**: Stores completed dispatch results. Contains customer-specific calculation outputs.
+- **API Gateway (physical-id-1)**: Public-facing entry point. Handles all customer API requests.
+- **Dispatches Lambda (physical-id-2)**: Core business logic. Processes tariff calculations with sensitive pricing data.
+- **Valkey Cache (physical-id-3)**: Stores results. Contains customer-specific calculation outputs.
 
 ## Sensitive Data
 What sensitive data flows through the system?
