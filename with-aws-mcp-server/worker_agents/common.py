@@ -1,5 +1,5 @@
 import os
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from agents import Agent, OpenAIChatCompletionsModel, Tool
 from agents.mcp import MCPServerStdio
@@ -18,11 +18,13 @@ CLIENT = AsyncOpenAI(
 )
 
 threat_modelling_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-filesystem_params = {
+
+filesystem_params: dict[str, Any] = {
     "command": os.getenv("NPX_PATH", "npx"),
     "args": ["-y", "@modelcontextprotocol/server-filesystem", threat_modelling_path],
 }
-threat_modelling_params = {
+
+threat_modelling_params: dict[str, Any] = {
     "command": "uvx",
     "args": [
         "--from",
@@ -32,7 +34,7 @@ threat_modelling_params = {
     "client_session_timeout_seconds": 60,
 }
 
-aws_mcp_params = {
+aws_mcp_params: dict[str, Any] = {
     "command": os.getenv("UVX_PATH", "uvx"),
     "args": [
         "mcp-proxy-for-aws@latest",
