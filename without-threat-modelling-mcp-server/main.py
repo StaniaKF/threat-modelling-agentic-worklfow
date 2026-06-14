@@ -3,9 +3,12 @@ import asyncio
 from contextlib import AsyncExitStack
 
 from agents import Runner, RunConfig, OpenAIChatCompletionsModel, trace
+from agents.tracing import set_trace_processors
 from agents.mcp import MCPServerStdio
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
+
+from utils.get_trace import FileSpanExporter
 
 from coordinator_agent import initialise_coordinator_agent
 from worker_agents import (
@@ -39,6 +42,9 @@ def run_config() -> RunConfig:
 
 
 async def main() -> None:
+    # Set up local trace exporter
+    set_trace_processors([FileSpanExporter("trace_output.json")])
+
     async with AsyncExitStack() as stack:
         # Filesystem server - only used by the coordinator
         filesystem_mcp_server = await stack.enter_async_context(
