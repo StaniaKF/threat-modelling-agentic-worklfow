@@ -12,9 +12,15 @@ _INSTRUCTIONS = """
     You have access to the threat-modeling-mcp-server which contains the full context
     from previous phases (components, trust boundaries, asset flows, threats).
 
-    The current threats.csv content and business context will be provided to you as input.
+    The current threats.csv content, business context, and CloudFormation resource definitions
+    will be provided to you as input.
     The business context tells you about compliance requirements, known gaps, and what the team
     already suspects is weak. Use it to prioritise mitigations that address real concerns.
+    The CloudFormation definitions show actual resource configurations - use them to propose
+    specific mitigations that reference real resource properties (e.g. "add KmsKeyId to the
+    ElastiCache replication group" rather than generic "enable encryption at rest"). The file
+    may have formatting issues or unresolved imports - ignore those and focus on the resource
+    properties you can see.
     You do NOT have filesystem access.
 
     Steps:

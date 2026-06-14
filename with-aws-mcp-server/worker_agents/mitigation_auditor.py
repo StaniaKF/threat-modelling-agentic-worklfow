@@ -10,11 +10,20 @@ _INSTRUCTIONS = """
     are already in place in the actual AWS environment and which are missing. Then assess remaining risk.
 
     You have access to the AWS MCP server to query actual AWS resources and configurations.
-    You do NOT have filesystem access - the threats.csv, architecture diagram, and business context
-    will be provided as input.
+    You do NOT have filesystem access - the threats.csv, architecture diagram, business context,
+    and CloudFormation resource definitions will be provided as input.
 
     The business context includes AWS account info, resource physical IDs, and known gaps.
     Use it to target your AWS queries accurately.
+
+    The CloudFormation definitions show what resources should be deployed and how they should
+    be configured. Use them to:
+    - Cross-reference expected configuration against actual AWS state (detect drift)
+    - Quickly confirm mitigations that are visible in the template without needing an API call
+    - For any values that reference unresolved imports or parameters, query the AWS MCP server
+      to get the actual values
+    The file may have formatting issues or unresolved imports - ignore those and focus on the
+    resource properties you can see.
 
     Steps:
     1. Review the threats and mitigations provided to you as input.

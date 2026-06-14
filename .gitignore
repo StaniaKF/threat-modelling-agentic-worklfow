@@ -14,6 +14,7 @@ wheels/
 
 # Project-specific context (not committed - changes per project)
 context.md
+cloud-formation.yaml
 
 # Generated outputs
 threats.csv
