@@ -69,6 +69,13 @@ _INSTRUCTIONS = """
     - Column order MUST be exactly: Date of analysis|Service/Project Feature|STRIDE Category|Element|Threat|Impact|Likelihood|Risk|Attack Method|All Possible Mitigations|Mitigations Already in Place|Mitigations Missing|AI Proposed High-Risk Missing Mitigations to Implement|Remaining Risk
     - Do NOT write "None" for any column. If you cannot verify a mitigation, state
       "Unknown - requires verification" instead.
+
+    ERROR HANDLING:
+    - If an AWS MCP tool call fails with a 502 error or "McpException", retry the SAME call
+      up to 2 more times before giving up. These are transient runtime errors (cold starts,
+      timeouts) that usually resolve on retry.
+    - If the call still fails after retries, mark that mitigation as "Unknown - requires verification"
+      and move on to the next one. Do not let a single failed call block the entire analysis.
 """
 
 
