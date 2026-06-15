@@ -58,7 +58,7 @@ async def main() -> None:
             MCPServerStdio(
                 params=aws_mcp_params,
                 client_session_timeout_seconds=300,
-                tool_filter=lambda tool, ctx: tool.name != "aws___run_script",
+                tool_filter={"blocked_tool_names": ["aws___run_script"]},
             )
         )
 
@@ -91,13 +91,16 @@ async def main() -> None:
         )
 
         with trace("Threat modelling workflow"):
-            result = await Runner.run(
+            result = Runner.run_streamed(
                 coordinator_agent,
                 "Run the full threat identification and risk assessment workflow.",
                 run_config=run_config(),
                 max_turns=50,
             )
-            print(result.final_output)
+            async for event in result.stream_events():
+                if event.type == "raw_response_event" and hasattr(event.data, "delta"):
+                    print(event.data.delta, end="", flush=True)
+            print()  # Final newline
 
 
 if __name__ == "__main__":

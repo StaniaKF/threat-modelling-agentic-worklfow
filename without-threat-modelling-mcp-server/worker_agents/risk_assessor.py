@@ -54,14 +54,18 @@ _INSTRUCTIONS = """
     - NEVER truncate, abbreviate, or replace any column content with "..." or similar
     - Every column that already has content MUST be preserved exactly as-is, character for character
     - The CSV MUST have exactly 14 pipe-delimited columns per row (matching the 14-column header)
+    - If a row has fewer than 14 columns, pad it with empty columns (add trailing pipes) before processing
     - Column order MUST be exactly: Date of analysis|Service/Project Feature|STRIDE Category|Element|Threat|Impact|Likelihood|Risk|Attack Method|All Possible Mitigations|Mitigations Already in Place|Mitigations Missing|AI Proposed High-Risk Missing Mitigations to Implement|Remaining Risk
+    - You ONLY fill columns 6 (Impact), 7 (Likelihood), 8 (Risk). Leave ALL other columns exactly as received.
 
     VALIDATION:
     Before producing the final answer, perform an internal validation pass:
     - Check that every Risk value correctly follows the risk matrix
     - Check that Impact and Likelihood ratings are justified by the architecture and business context
     - Check that you have not hallucinated information not present in the inputs
-    - Mark any unknowns explicitly as "Unknown - requires clarification"
+    - Check that every row has exactly 14 pipe-delimited columns
+    - Check that you have NOT modified any columns other than 6, 7, and 8
+    - If a column was empty in the input, it MUST remain empty in the output (do NOT fill it with "Unknown")
 
     Do NOT identify new threats or suggest mitigations — that is handled by other agents.
 """
