@@ -47,24 +47,29 @@ _INSTRUCTIONS = """
     as plain text.
 
     Then output the CSV inside a single markdown code block. Use PIPE (|) as the delimiter.
-    The FIRST line MUST be the header row exactly as shown below:
+    The FIRST line MUST be the header row exactly as shown below (14 columns):
     Date of analysis|Service/Project Feature|STRIDE Category|Element|Threat|Impact|Likelihood|Risk|Attack Method|All Possible Mitigations|Mitigations Already in Place|Mitigations Missing|AI Proposed High-Risk Missing Mitigations to Implement|Remaining Risk
 
-    Each subsequent line is a data row. Fill in only:
-    - Date of analysis (use the exact date provided by the coordinator)
-    - Service/Project Feature
-    - STRIDE Category (Spoofing/Tampering/Repudiation/Information Disclosure/Denial of Service/Elevation of Privilege)
-    - Element (the component affected)
-    - Threat (written in threat grammar as specified above)
-    - Attack Method (how the attacker would do it)
-    Leave Impact, Likelihood, Risk, and all mitigation columns empty — they will be filled by other agents.
+    Each subsequent line is a data row with EXACTLY 14 pipe-delimited fields. Fill in only:
+    - Column 1: Date of analysis (use the exact date provided by the coordinator)
+    - Column 2: Service/Project Feature
+    - Column 3: STRIDE Category (Spoofing/Tampering/Repudiation/Information Disclosure/Denial of Service/Elevation of Privilege)
+    - Column 4: Element (the component affected)
+    - Column 5: Threat (written in threat grammar as specified above)
+    - Column 9: Attack Method (how the attacker would do it — this MUST be a specific, detailed description)
 
-    EXAMPLE OUTPUT ROW (showing only the columns you fill, others left empty):
-    2026-05-01|Dispatches|Tampering|API Gateway -> Lambda|[A compromised 3rd Party API (e.g., Static data)] with [an established HTTPS connection responding to the Lambda] can [return maliciously altered or structurally poisoned response payloads], which leads to [the Dispatches Lambda processing poisoned/incorrect data], resulting in reduced [Data Integrity] of [The Outbound API Response]||||||||||
-    2026-05-01|Dispatches|Denial of Service|Lambda -> downstream APIs|[A slow or unresponsive 3rd Party API] with [degraded internal performance] can [cause the Dispatches Lambda to wait indefinitely for a response], which leads to [a massive backlog of active Lambda executions holding network connections open], resulting in reduced [Availability] of [The Outbound API Request Flow]||||||||||
+    Leave columns 6, 7, 8, 10, 11, 12, 13, 14 EMPTY (but include the pipe delimiters).
+    Every row MUST have exactly 13 pipe characters (producing 14 fields).
+
+    EXAMPLE OUTPUT ROW (showing all 14 columns, empty ones left blank between pipes):
+    2026-05-01|Dispatches|Tampering|API Gateway -> Lambda|[A compromised 3rd Party API (e.g., Static data)] with [an established HTTPS connection responding to the Lambda] can [return maliciously altered or structurally poisoned response payloads], which leads to [the Dispatches Lambda processing poisoned/incorrect data], resulting in reduced [Data Integrity] of [The Outbound API Response]||||Attacker compromises the downstream API backend and returns poisoned JSON payloads that bypass input validation|||||
+    2026-05-01|Dispatches|Denial of Service|Lambda -> downstream APIs|[A slow or unresponsive 3rd Party API] with [degraded internal performance] can [cause the Dispatches Lambda to wait indefinitely for a response], which leads to [a massive backlog of active Lambda executions holding network connections open], resulting in reduced [Availability] of [The Outbound API Request Flow]||||Attacker throttles or blocks downstream API responses causing Lambda timeout accumulation|||||
 
     VALIDATION:
     Before producing the final answer, perform an internal validation pass:
+    - Check that every row has EXACTLY 14 pipe-delimited fields (13 pipe characters per row)
+    - Check that columns 6, 7, 8, 10, 11, 12, 13, 14 are EMPTY in every row
+    - Check that column 9 (Attack Method) is filled with a specific attack description
     - Check that every threat is grounded in the provided architecture (not invented)
     - Check that every threat follows the threat grammar format
     - Check that you have not hallucinated components or services not present in the inputs

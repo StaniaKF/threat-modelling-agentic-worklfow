@@ -102,3 +102,34 @@ aws sso login
 ```bash
 uv run python main.py
 ```
+
+## Limitations of this workflow
+
+### CSV column misalignment (primary issue)
+
+The biggest reliability problem is that worker agents (especially the mitigation auditor) struggle to maintain correct column structure in the pipe-delimited CSV. The CSV has 14 columns, and when the model generates long rows with detailed content in each field, it frequently miscounts pipe delimiters — merging columns, dropping them, or shifting content into wrong positions.
+
+This happens because:
+- Each row can be 500+ characters long with semicolons, numbered lists, and descriptive text within individual fields
+- Smaller models (gpt-4o-mini) have difficulty tracking positional structure in very wide tabular data
+- The model confuses semicolons within mitigations (used as list separators) with structural boundaries
+
+### Coordinator relay bottleneck
+
+Worker agents don't have filesystem access — they return their full output to the coordinator, which then writes it to `threats.csv`. This creates two problems:
+
+1. **Timeout risk**: The auditor must generate all 14+ rows of detailed CSV in a single LLM response. If this takes longer than the LiteLLM proxy timeout (default 120s), the connection drops mid-stream and the entire run fails.
+2. **Coordinator may forget to write**: After receiving the auditor's output (the final step), the coordinator sometimes skips the file write and just presents a summary — losing all the auditor's work.
+
+### AWS MCP proxy limitations
+
+- Some AWS services are not supported by `mcp-proxy-for-aws` (e.g. AWS Config, GuardDuty, SecurityHub). The auditor must fall back to CloudFormation analysis for those.
+- Broad list calls (`describe-log-groups`, `describe-security-groups` without filters) can return payloads that exceed the Lambda response limit, causing 502 errors.
+- Cold starts on the proxy Lambda cause transient 502 errors on the first few calls if the workflow has been idle.
+
+### Potential improvements
+
+- **Give workers filesystem access** so they can read the CSV, update their columns, and write back directly — avoiding the coordinator relay and timeout issues.
+- **Process rows individually** rather than the entire CSV in one generation to reduce cognitive load on the model.
+- **Use a larger model** (gpt-4o) for the auditor agent specifically, since it handles structured data more reliably.
+- **Switch from pipe-delimited CSV to JSON** for the inter-agent data format, which models handle more reliably than positional tabular formats.

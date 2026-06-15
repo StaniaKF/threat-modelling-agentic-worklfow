@@ -3,9 +3,12 @@ import asyncio
 from contextlib import AsyncExitStack
 
 from agents import Runner, RunConfig, OpenAIChatCompletionsModel, trace
+from agents.tracing import set_trace_processors
 from agents.mcp import MCPServerStdio
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
+
+from utils.get_trace import FileSpanExporter
 
 from coordinator_agent import initialise_coordinator_agent
 from worker_agents import (
@@ -39,6 +42,9 @@ def run_config() -> RunConfig:
 
 
 async def main() -> None:
+    # Set up local trace exporter
+    set_trace_processors([FileSpanExporter("trace_output.json")])
+
     async with AsyncExitStack() as stack:
         # Filesystem server - only used by the coordinator
         filesystem_mcp_server = await stack.enter_async_context(
@@ -46,8 +52,14 @@ async def main() -> None:
         )
 
         # AWS MCP server - used only by the mitigation auditor
+        # Filter out aws___run_script as it uses call_boto3() which doesn't recognise
+        # standard operation names. The agent should use aws___call_aws instead.
         aws_mcp_server = await stack.enter_async_context(
-            MCPServerStdio(params=aws_mcp_params, client_session_timeout_seconds=300)
+            MCPServerStdio(
+                params=aws_mcp_params,
+                client_session_timeout_seconds=300,
+                tool_filter={"blocked_tool_names": ["aws___run_script"]},
+            )
         )
 
         # Warm up AWS MCP server to avoid cold-start delays
@@ -79,13 +91,16 @@ async def main() -> None:
         )
 
         with trace("Threat modelling workflow"):
-            result = await Runner.run(
+            result = Runner.run_streamed(
                 coordinator_agent,
                 "Run the full threat identification and risk assessment workflow.",
                 run_config=run_config(),
                 max_turns=50,
             )
-            print(result.final_output)
+            async for event in result.stream_events():
+                if event.type == "raw_response_event" and hasattr(event.data, "delta"):
+                    print(event.data.delta, end="", flush=True)
+            print()  # Final newline
 
 
 if __name__ == "__main__":
