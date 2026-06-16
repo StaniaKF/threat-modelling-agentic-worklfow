@@ -3,12 +3,13 @@ import asyncio
 from contextlib import AsyncExitStack
 
 from agents import Runner, RunConfig, OpenAIChatCompletionsModel, trace
-from agents.tracing import set_trace_processors
+from agents.tracing import add_trace_processor
 from agents.mcp import MCPServerStdio
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 from utils.get_trace import FileSpanExporter
+from tools import convert_to_csv
 
 from coordinator_agent import initialise_coordinator_agent
 from worker_agents import (
@@ -42,16 +43,16 @@ def run_config() -> RunConfig:
 
 
 async def main() -> None:
-    # Set up local trace exporter
-    set_trace_processors([FileSpanExporter("trace_output.json")])
+    # Add local trace exporter (keeps the default OpenAI platform exporter active too)
+    add_trace_processor(FileSpanExporter("trace_output.json"))
 
     async with AsyncExitStack() as stack:
-        # Filesystem server - only used by the coordinator
+        # Filesystem server - shared by coordinator and all workers
         filesystem_mcp_server = await stack.enter_async_context(
             MCPServerStdio(filesystem_params)
         )
 
-        # AWS MCP server - used only by the mitigation auditor
+        # AWS MCP server - used by the mitigation auditor
         # Filter out aws___run_script as it uses call_boto3() which doesn't recognise
         # standard operation names. The agent should use aws___call_aws instead.
         aws_mcp_server = await stack.enter_async_context(
@@ -67,23 +68,29 @@ async def main() -> None:
         aws_tools = await aws_mcp_server.list_tools()
         print(f"AWS MCP server ready. {len(aws_tools)} tools available.")
 
-        # Worker agents — threat identifier, risk assessor, and mitigation planner
-        # don't need MCP servers (they use LLM knowledge only)
-        threat_modelling_tool = initialise_threat_identification_tool()
-        risk_assessor_tool = initialise_risk_assessor_tool()
-        mitigation_planner_tool = initialise_mitigation_planner_tool()
-
-        # Mitigation auditor needs the AWS MCP server to query live resources
-        mitigation_auditor_tool = initialise_mitigation_auditor_tool(
-            mcp_servers=[aws_mcp_server]
+        # Worker agents — all get filesystem MCP access to read/write threats.json
+        threat_modelling_tool = initialise_threat_identification_tool(
+            mcp_servers=[filesystem_mcp_server]
+        )
+        risk_assessor_tool = initialise_risk_assessor_tool(
+            mcp_servers=[filesystem_mcp_server]
+        )
+        mitigation_planner_tool = initialise_mitigation_planner_tool(
+            mcp_servers=[filesystem_mcp_server]
         )
 
-        # Coordinator gets filesystem access + all worker tools
+        # Mitigation auditor gets BOTH filesystem and AWS MCP servers
+        mitigation_auditor_tool = initialise_mitigation_auditor_tool(
+            mcp_servers=[filesystem_mcp_server, aws_mcp_server]
+        )
+
+        # Coordinator gets filesystem access + all worker tools + convert_to_csv
         coordinator_tools = [
             threat_modelling_tool,
             risk_assessor_tool,
             mitigation_planner_tool,
             mitigation_auditor_tool,
+            convert_to_csv,
         ]
         coordinator_agent = initialise_coordinator_agent(
             mcp_servers=[filesystem_mcp_server],

@@ -1,15 +1,20 @@
 from agents import Tool
+from agents.mcp import MCPServerStdio
 
 from .common import AgentProperties, ToolProperties, agent_as_tool
 
 _INSTRUCTIONS = """
     You are a Cybersecurity Risk Assessment Specialist.
 
-    Your task: Assess the risk level of each identified threat based on impact and likelihood.
-    You do NOT have filesystem access — all inputs are provided to you directly.
+    Your task: Assess the risk level of each identified threat based on impact and likelihood,
+    then write the results directly to the shared threats.json file.
 
-    INPUTS PROVIDED:
-    - The current threats.csv content (pipe-delimited)
+    You HAVE filesystem MCP access. You will:
+    - Read threats.json (current state: contains "metadata" and a "threats" array where each object has stride_category, element, threat, attack_method filled in; impact/likelihood/risk are null)
+    - Add "impact", "likelihood", and "risk" to each threat object
+    - Write the updated threats.json back
+
+    INPUTS PROVIDED (via the coordinator's tool call message):
     - Business context describing what's critical, sensitive data, and compliance requirements
     - CloudFormation resource definitions showing actual AWS configurations
 
@@ -32,46 +37,53 @@ _INSTRUCTIONS = """
     | Medium              | Low    | Medium | High     |
     | High                | Medium | High   | Critical |
 
-    STEPS:
-    1. Review the threats.csv content provided as input.
-       The file uses PIPE (|) as delimiter. Column order:
-       Date of analysis|Service/Project Feature|STRIDE Category|Element|Threat|Impact|Likelihood|Risk|Attack Method|All Possible Mitigations|Mitigations Already in Place|Mitigations Missing|AI Proposed High-Risk Missing Mitigations to Implement|Remaining Risk
-    2. For each threat row, assess Impact and Likelihood using the criteria above.
-    3. Calculate Risk using the risk matrix.
-    4. Return the COMPLETE updated CSV content (with PIPE delimiters) with these columns filled in:
-       - Column 6: "Impact" (High / Medium / Low)
-       - Column 7: "Likelihood" (High / Medium / Low)
-       - Column 8: "Risk" (Critical / High / Medium / Low — derived from the matrix)
-       Keep ALL other columns exactly as they are.
+    WORKFLOW:
+    1. Read threats.json using the filesystem MCP read_file tool.
+    2. Parse the JSON. The "threats" array should contain objects with stride_category, element,
+       threat, and attack_method.
+    3. For each threat object, assess Impact and Likelihood using the criteria above.
+    4. Calculate Risk using the risk matrix.
+    5. Add these fields to each threat object:
+       - "impact": "High", "Medium", or "Low"
+       - "likelihood": "High", "Medium", or "Low"
+       - "risk": "Critical", "High", "Medium", or "Low" (derived from the matrix)
+    6. Write the updated threats.json back using the filesystem MCP write_file tool.
+       IMPORTANT: Validate that the JSON is well-formed before writing.
 
-    EXAMPLE — Given this input row:
-    2026-05-01|Dispatches|Tampering|API Gateway -> Lambda|[A compromised 3rd Party API] with [an established HTTPS connection] can [return poisoned payloads], which leads to [processing incorrect data], resulting in reduced [Data Integrity] of [The Outbound API Response]||||(Attacker compromises the downstream API backend and returns poisoned JSON)|||||
-
-    You would return:
-    2026-05-01|Dispatches|Tampering|API Gateway -> Lambda|[A compromised 3rd Party API] with [an established HTTPS connection] can [return poisoned payloads], which leads to [processing incorrect data], resulting in reduced [Data Integrity] of [The Outbound API Response]|High|Medium|High|Attacker compromises the downstream API backend and returns poisoned JSON|||||
-
-    CRITICAL RULES:
-    - NEVER truncate, abbreviate, or replace any column content with "..." or similar
-    - Every column that already has content MUST be preserved exactly as-is, character for character
-    - The CSV MUST have exactly 14 pipe-delimited columns per row (matching the 14-column header)
-    - If a row has fewer than 14 columns, pad it with empty columns (add trailing pipes) before processing
-    - Column order MUST be exactly: Date of analysis|Service/Project Feature|STRIDE Category|Element|Threat|Impact|Likelihood|Risk|Attack Method|All Possible Mitigations|Mitigations Already in Place|Mitigations Missing|AI Proposed High-Risk Missing Mitigations to Implement|Remaining Risk
-    - You ONLY fill columns 6 (Impact), 7 (Likelihood), 8 (Risk). Leave ALL other columns exactly as received.
+    EXAMPLE — A threat object after your work:
+    {
+      "stride_category": "Tampering",
+      "element": "API Gateway -> Lambda",
+      "threat": "[A compromised 3rd Party API] with [an established HTTPS connection] can [return poisoned payloads], which leads to [processing incorrect data], resulting in reduced [Data Integrity] of [The Outbound API Response]",
+      "attack_method": "Attacker compromises the downstream API backend and returns poisoned JSON payloads that bypass input validation",
+      "impact": "High",
+      "likelihood": "Medium",
+      "risk": "High"
+    }
 
     VALIDATION:
-    Before producing the final answer, perform an internal validation pass:
+    Before writing threats.json:
+    - Validate that the output is valid JSON (parseable)
+    - CRITICAL: Count the threats in your output. The count MUST be EQUAL to the count you
+      read from the file. If you read 12 threats, you must write 12 threats. If your output
+      has fewer threats, you have truncated the file — DO NOT WRITE IT. Re-generate the full output.
     - Check that every Risk value correctly follows the risk matrix
     - Check that Impact and Likelihood ratings are justified by the architecture and business context
-    - Check that you have not hallucinated information not present in the inputs
-    - Check that every row has exactly 14 pipe-delimited columns
-    - Check that you have NOT modified any columns other than 6, 7, and 8
-    - If a column was empty in the input, it MUST remain empty in the output (do NOT fill it with "Unknown")
+    - Check that you have NOT modified existing fields (stride_category, element, threat, attack_method)
+    - Check that you have ONLY added: impact, likelihood, risk
 
-    Do NOT identify new threats or suggest mitigations — that is handled by other agents.
+    CRITICAL RULES:
+    - NEVER modify existing fields (stride_category, element, threat, attack_method)
+    - ONLY add: impact, likelihood, risk
+    - Write valid JSON — no trailing commas, proper quoting, no comments
+    - Do NOT identify new threats or suggest mitigations — that is handled by other agents
+    - You MUST read threats.json first, then write it back with your additions
 """
 
 
-def initialise_risk_assessor_tool() -> Tool:
+def initialise_risk_assessor_tool(
+    mcp_servers: list[MCPServerStdio],
+) -> Tool:
     agent_properties = AgentProperties(
         name="Risk Assessor Agent",
         instructions=_INSTRUCTIONS,
@@ -79,10 +91,11 @@ def initialise_risk_assessor_tool() -> Tool:
 
     tool_properties = ToolProperties(
         name="risk_assessment",
-        description="Assess the risk level of identified threats based on their potential impact and likelihood.",
+        description="Assess the risk level of identified threats based on their potential impact and likelihood. Reads/writes threats.json directly via filesystem MCP.",
     )
 
     return agent_as_tool(
         agent_properties=agent_properties,
         tool_properties=tool_properties,
+        mcp_servers=mcp_servers,
     )
