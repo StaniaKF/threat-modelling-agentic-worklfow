@@ -18,9 +18,11 @@ cloud-formation.yaml
 
 # Generated outputs
 threats.csv
+threats.json
 mermaid.md
 analysis.md
 trace_output.json
+trace_test_*.json
 
 
 .DS_Store
