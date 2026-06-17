@@ -7,7 +7,7 @@ An automated threat modelling pipeline built with the OpenAI Agents SDK. A coord
 3. **Plan mitigations** by proposing controls for high-risk threats
 4. **Audit mitigations** by checking which controls are already in place via the AWS MCP server
 
-The workflow reads a Mermaid architecture diagram, runs the full analysis pipeline, and outputs a structured threat model as a CSV.
+The workflow reads a Mermaid architecture diagram, runs the full analysis pipeline, and outputs a structured threat model as JSON and CSV in the `outputs/` folder.
 
 ## Prerequisites
 
@@ -19,18 +19,87 @@ The workflow reads a Mermaid architecture diagram, runs the full analysis pipeli
 
 ## Setup
 
-Create .env file with example values from .env.example 
-
 ```bash
 cp .env.example .env
 # Edit .env with your values
-
-Create context.md file with example values from .env.example 
 
 cp context.md.example context.md
 # Edit context.md with your project-specific business context
 
 make install
+```
+
+## Running
+
+Log in to AWS first:
+```bash
+aws sso login
+```
+
+**Without validation** (basic workflow):
+```bash
+uv run python main.py
+```
+
+**With validation** (recommended — includes programmatic checks and retry):
+```bash
+uv run python main_with_validation.py
+```
+
+Both write outputs to `outputs/` (threats.json, threats.csv, analysis.md, trace).
+
+## Validation System
+
+`main_with_validation.py` wraps each worker agent with a programmatic validation step. After each agent writes `outputs/threats.json`, a Python validator reads the file and checks it for correctness. If validation fails, the agent is automatically re-invoked with the specific errors appended to its input (up to 2 retries).
+
+### What each validator checks
+
+| Agent | Validator checks |
+|-------|-----------------|
+| Threat Identifier | Threats array is non-empty, all 4 required fields present and non-null, valid STRIDE categories |
+| Risk Assessor | Threat count preserved (no truncation), impact/likelihood/risk are non-null, **risk correctly matches the defined matrix** (e.g. Impact=High + Likelihood=Medium must equal Risk=High) |
+| Mitigation Planner | Threat count preserved, `all_possible_mitigations` is a non-empty array of strings for every threat |
+| Mitigation Auditor | Threat count preserved, `mitigations_already_in_place` + `mitigations_missing` count equals `all_possible_mitigations` count, `remaining_risk` is a valid level |
+
+### How retries work
+
+1. Agent runs and writes to `outputs/threats.json`
+2. Validator reads the file and checks constraints
+3. If valid → proceed to next agent
+4. If invalid → agent is re-invoked with the original input + error details (e.g. "Threat 3: risk is 'Medium' but matrix says Impact=High + Likelihood=Medium → 'High'")
+5. Up to 2 retries (3 attempts total) before reporting failure
+
+### Why not SDK guardrails?
+
+The OpenAI Agents SDK has a guardrails feature, but it's designed for checking the agent's response text (content safety, PII). Our agents' real output is a file on disk (written via MCP tools), not their response text. Additionally, guardrails halt on failure — they don't retry. The custom validation wrapper gives us file-level checks with feedback-driven retries.
+
+## Project Structure
+
+```
+├── main.py                          # Basic workflow (no validation)
+├── main_with_validation.py          # Workflow with validation + retry
+├── coordinator_agent.py             # Coordinator agent definition
+├── worker_agents/
+│   ├── common.py                    # Shared config, agent_as_tool, agent_as_tool_with_validation
+│   ├── threat_identifier.py         # STRIDE threat identification
+│   ├── risk_assessor.py             # Impact/likelihood/risk assessment
+│   ├── mitigation_planner.py        # Mitigation proposals
+│   └── mitigation_auditor.py        # AWS audit of mitigations in place
+├── validation/
+│   ├── __init__.py
+│   └── validators.py                # Programmatic validators for each agent step
+├── tools/
+│   └── convert_to_csv.py            # JSON → pipe-delimited CSV converter
+├── utils/
+│   └── get_trace.py                 # Local trace file exporter
+├── outputs/                         # Generated outputs (gitignored)
+│   ├── threats.json
+│   ├── threats.csv
+│   ├── analysis.md
+│   └── trace_output*.json
+├── context.md                       # Business context (gitignored, project-specific)
+├── mermaid.md                       # Architecture diagram
+└── cloud-formation.yaml             # AWS resource definitions (gitignored)
 ```
 
 ## Business Context (`context.md`)
@@ -47,89 +116,32 @@ The file should include:
 
 - **Project / Service Name** — what the system is called
 - **What the system does** — brief description of purpose and data processed
-- **Critical Components** — which parts of the architecture matter most and why
+- **Critical Components** — which parts of the architecture matter most and why (include physical IDs)
 - **Sensitive Data** — what PII, secrets, or commercially sensitive data flows through the system
 - **Compliance / Regulatory Requirements** — GDPR, PCI-DSS, SOC2, etc.
 - **AWS Account Info** — account number, region, and resource physical IDs
 - **Trust Assumptions** — what you trust and what you don't
-- **Known Gaps / Areas of Concern** — weaknesses the team already suspects
-
-The coordinator reads this file at startup and passes it to every worker agent so they can:
-- Focus threat identification on critical components
-- Weight risk assessments based on data sensitivity and compliance requirements
-- Prioritise mitigations that address known gaps
-- Target AWS queries at the correct resources using physical IDs
-
-If `context.md` doesn't exist, the workflow proceeds without it (but results will be less targeted).
 
 ## CloudFormation File (`cloud-formation.yaml`)
 
-The `cloud-formation.yaml` file provides the agents with actual AWS resource definitions as additional context alongside the architecture diagram and live AWS queries. It helps agents understand the intended configuration of resources so they can identify threats and propose mitigations more accurately.
+Provides the agents with actual AWS resource definitions. Helps them understand the intended configuration so they can identify threats and verify mitigations against live state.
 
-This file is **not committed to the repo** (gitignored) because it contains infrastructure details specific to your project.
+- Include security-relevant resources: IAM roles/policies, security groups, Lambda functions, API Gateways, caches, VPCs, etc.
+- No need for perfect formatting — agents can handle imperfect YAML
+- If `cloud-formation.yaml` doesn't exist, the workflow proceeds without it
 
-Create it manually by copying the relevant resource definitions from your CloudFormation stacks into a single file:
+## Available Commands
 
-- Include all **security-relevant resources**: IAM roles/policies, security groups, Lambda functions, API Gateways, databases, caches, VPCs, S3 buckets, KMS keys, WAF rules, etc.
-- **No need to include** non-security resources like CloudWatch alarms, dashboards, or tags-only resources.
-- **No need for correct formatting** — the agents can parse imperfect YAML. Just paste the resource blocks in.
-- **No parameters section needed** — if your templates use `!ImportValue` or parameter refs that aren't defined in the file, the agents will ignore them or resolve the actual values via the AWS MCP server.
-- Keep it to **one file** with all important resources consolidated.
+| Command        | Description                              |
+|----------------|------------------------------------------|
+| `make install` | Install all dependencies (including dev) |
+| `make lint`    | Check for linting and formatting issues  |
+| `make format`  | Auto-fix formatting issues               |
 
-The coordinator reads this file at startup and passes it to every worker agent so they can:
-- Identify threats based on actual misconfigurations (not assumptions)
-- Assess risk more accurately by knowing what's already configured
-- Propose specific mitigations referencing real resource properties
-- Cross-reference expected configuration against live AWS state to detect drift
+## Key Design Decisions
 
-If `cloud-formation.yaml` doesn't exist, the workflow proceeds without it.
-
-## Available commands
-
-| Command        | Description                                      |
-|----------------|--------------------------------------------------|
-| `make install` | Install all dependencies (including dev)         |
-| `make lint`    | Check for linting and formatting issues          |
-| `make format`  | Auto-fix formatting issues                       |
-
-## Running
-
-first log in to aws
-```bash
-aws sso login
-```
-
-```bash
-uv run python main.py
-```
-
-## Limitations of this workflow
-
-### CSV column misalignment (primary issue)
-
-The biggest reliability problem is that worker agents (especially the mitigation auditor) struggle to maintain correct column structure in the pipe-delimited CSV. The CSV has 14 columns, and when the model generates long rows with detailed content in each field, it frequently miscounts pipe delimiters — merging columns, dropping them, or shifting content into wrong positions.
-
-This happens because:
-- Each row can be 500+ characters long with semicolons, numbered lists, and descriptive text within individual fields
-- Smaller models (gpt-4o-mini) have difficulty tracking positional structure in very wide tabular data
-- The model confuses semicolons within mitigations (used as list separators) with structural boundaries
-
-### Coordinator relay bottleneck
-
-Worker agents don't have filesystem access — they return their full output to the coordinator, which then writes it to `threats.csv`. This creates two problems:
-
-1. **Timeout risk**: The auditor must generate all 14+ rows of detailed CSV in a single LLM response. If this takes longer than the LiteLLM proxy timeout (default 120s), the connection drops mid-stream and the entire run fails.
-2. **Coordinator may forget to write**: After receiving the auditor's output (the final step), the coordinator sometimes skips the file write and just presents a summary — losing all the auditor's work.
-
-### AWS MCP proxy limitations
-
-- Some AWS services are not supported by `mcp-proxy-for-aws` (e.g. AWS Config, GuardDuty, SecurityHub). The auditor must fall back to CloudFormation analysis for those.
-- Broad list calls (`describe-log-groups`, `describe-security-groups` without filters) can return payloads that exceed the Lambda response limit, causing 502 errors.
-- Cold starts on the proxy Lambda cause transient 502 errors on the first few calls if the workflow has been idle.
-
-### Potential improvements
-
-- **Give workers filesystem access** so they can read the CSV, update their columns, and write back directly — avoiding the coordinator relay and timeout issues.
-- **Process rows individually** rather than the entire CSV in one generation to reduce cognitive load on the model.
-- **Use a larger model** (gpt-4o) for the auditor agent specifically, since it handles structured data more reliably.
-- **Switch from pipe-delimited CSV to JSON** for the inter-agent data format, which models handle more reliably than positional tabular formats.
+1. **JSON over CSV** — agents work with `threats.json` as the shared data format (models handle JSON far more reliably than positional tabular formats)
+2. **Sequential execution** — `ModelSettings(parallel_tool_calls=False)` on the coordinator prevents race conditions where agents read stale data
+3. **Programmatic validation** — deterministic Python checks catch errors that prompt-based instructions alone cannot reliably prevent
+4. **Outputs folder** — all generated files go to `outputs/`, cleaned at the start of each run
+5. **Workers have filesystem MCP** — agents read/write directly instead of relaying through the coordinator (avoids timeout and truncation issues)
