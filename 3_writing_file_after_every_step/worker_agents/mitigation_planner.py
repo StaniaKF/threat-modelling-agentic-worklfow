@@ -1,25 +1,25 @@
 from agents import Tool
 from agents.mcp import MCPServerStdio
 
-from .common import AgentProperties, ToolProperties, agent_as_tool
+from .common import AgentProperties, ToolProperties, agent_as_tool, agent_as_tool_with_validation
 
 _INSTRUCTIONS = """
     You are a Security Mitigation Planning Specialist.
 
     Your task: For each identified threat, determine all possible mitigations,
-    then write the results directly to the shared threats.json file.
+    then write the results directly to the shared outputs/threats.json file.
 
     You HAVE filesystem MCP access. You will:
-    - Read threats.json (current state: contains "metadata" and a "threats" array where each object has stride_category, element, threat, attack_method, impact, likelihood, risk filled in; all_possible_mitigations is null)
+    - Read outputs/threats.json (current state: contains "metadata" and a "threats" array where each object has stride_category, element, threat, attack_method, impact, likelihood, risk filled in; all_possible_mitigations is null)
     - Add "all_possible_mitigations" (array of strings) to each threat object
-    - Write the updated threats.json back
+    - Write the updated outputs/threats.json back
 
     INPUTS PROVIDED (via the coordinator's tool call message):
-    - None required — you read threats.json directly and determine mitigations
+    - None required — you read outputs/threats.json directly and determine mitigations
       based on security knowledge applied to each threat.
 
     STEPS:
-    1. Read threats.json using the filesystem MCP read_file tool.
+    1. Read outputs/threats.json using the filesystem MCP read_file tool.
     2. Parse the JSON. The "threats" array should contain objects with stride_category, element,
        threat, attack_method, impact, likelihood, and risk.
     3. For each threat object, identify ALL possible mitigations across these categories:
@@ -32,7 +32,7 @@ _INSTRUCTIONS = """
          Example: ["Response schema validation on downstream API responses",
                    "Circuit breaker pattern for anomalous responses",
                    "Mutual TLS (mTLS) for service-to-service communication"]
-    5. Write the updated threats.json back using the filesystem MCP write_file tool.
+    5. Write the updated outputs/threats.json back using the filesystem MCP write_file tool.
        IMPORTANT: Validate that the JSON is well-formed before writing.
 
     EXAMPLE — A threat object after your work:
@@ -56,7 +56,7 @@ _INSTRUCTIONS = """
     }
 
     VALIDATION:
-    Before writing threats.json:
+    Before writing outputs/threats.json:
     - Validate that the output is valid JSON (parseable)
     - CRITICAL: Count the threats in your output. The count MUST be EQUAL to the count you
       read from the file. If your output has fewer threats, you have truncated the file —
@@ -74,7 +74,7 @@ _INSTRUCTIONS = """
     - Write valid JSON — no trailing commas, proper quoting, no comments
     - Do NOT reassess risk or re-identify threats — that was handled by other agents
     - Do NOT determine which mitigations are already in place — that is handled by the next agent
-    - You MUST read threats.json first, then write it back with your additions
+    - You MUST read outputs/threats.json first, then write it back with your additions
 """
 
 
@@ -88,11 +88,34 @@ def initialise_mitigation_planner_tool(
 
     tool_properties = ToolProperties(
         name="mitigation_planning",
-        description="Identify all possible mitigations for threats. Reads/writes threats.json directly via filesystem MCP.",
+        description="Identify all possible mitigations for threats. Reads/writes outputs/threats.json directly via filesystem MCP.",
     )
 
     return agent_as_tool(
         agent_properties=agent_properties,
         tool_properties=tool_properties,
+        mcp_servers=mcp_servers,
+    )
+
+
+def initialise_mitigation_planner_tool_with_validation(
+    mcp_servers: list[MCPServerStdio],
+) -> Tool:
+    from validation import validate_after_mitigation_planner
+
+    agent_properties = AgentProperties(
+        name="Mitigation Planner Agent",
+        instructions=_INSTRUCTIONS,
+    )
+
+    tool_properties = ToolProperties(
+        name="mitigation_planning",
+        description="Identify all possible mitigations for threats. Reads/writes outputs/threats.json directly via filesystem MCP.",
+    )
+
+    return agent_as_tool_with_validation(
+        agent_properties=agent_properties,
+        tool_properties=tool_properties,
+        validator=validate_after_mitigation_planner,
         mcp_servers=mcp_servers,
     )

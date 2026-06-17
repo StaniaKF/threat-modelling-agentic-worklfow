@@ -1,3 +1,17 @@
+"""
+Threat modelling workflow with programmatic validation after each agent step.
+
+After each agent writes outputs/threats.json, a Python validator checks the output.
+If validation fails, the agent is re-invoked with the error details (up to 2 retries
+per step).
+
+Key differences from main.py:
+- Validates each agent's output programmatically before proceeding to the next step
+
+Run from the project root:
+    uv run python main_with_validation.py
+"""
+
 import os
 import shutil
 import asyncio
@@ -15,10 +29,10 @@ from tools import convert_to_csv
 
 from coordinator_agent import initialise_coordinator_agent
 from worker_agents import (
-    initialise_threat_identification_tool,
-    initialise_risk_assessor_tool,
-    initialise_mitigation_planner_tool,
-    initialise_mitigation_auditor_tool,
+    initialise_threat_identification_tool_with_validation,
+    initialise_risk_assessor_tool_with_validation,
+    initialise_mitigation_planner_tool_with_validation,
+    initialise_mitigation_auditor_tool_with_validation,
     filesystem_params,
     aws_mcp_params,
 )
@@ -59,8 +73,9 @@ async def main() -> None:
     # Clean previous outputs
     clean_outputs()
 
-    # Add local trace exporter (keeps the default OpenAI platform exporter active too)
-    add_trace_processor(FileSpanExporter(str(OUTPUTS_DIR / "trace_output.json")))
+    # Add local trace exporter — writes to outputs/ folder
+    trace_output_path = str(OUTPUTS_DIR / "trace_output_with_validation.json")
+    add_trace_processor(FileSpanExporter(trace_output_path))
 
     async with AsyncExitStack() as stack:
         # Filesystem server - shared by coordinator and all workers
@@ -69,8 +84,6 @@ async def main() -> None:
         )
 
         # AWS MCP server - used by the mitigation auditor
-        # Filter out aws___run_script as it uses call_boto3() which doesn't recognise
-        # standard operation names. The agent should use aws___call_aws instead.
         aws_mcp_server = await stack.enter_async_context(
             MCPServerStdio(
                 params=aws_mcp_params,
@@ -84,19 +97,19 @@ async def main() -> None:
         aws_tools = await aws_mcp_server.list_tools()
         print(f"AWS MCP server ready. {len(aws_tools)} tools available.")
 
-        # Worker agents — all get filesystem MCP access to read/write threats.json
-        threat_modelling_tool = initialise_threat_identification_tool(
+        # Worker agents with validation — all get filesystem MCP access
+        threat_modelling_tool = initialise_threat_identification_tool_with_validation(
             mcp_servers=[filesystem_mcp_server]
         )
-        risk_assessor_tool = initialise_risk_assessor_tool(
+        risk_assessor_tool = initialise_risk_assessor_tool_with_validation(
             mcp_servers=[filesystem_mcp_server]
         )
-        mitigation_planner_tool = initialise_mitigation_planner_tool(
+        mitigation_planner_tool = initialise_mitigation_planner_tool_with_validation(
             mcp_servers=[filesystem_mcp_server]
         )
 
         # Mitigation auditor gets BOTH filesystem and AWS MCP servers
-        mitigation_auditor_tool = initialise_mitigation_auditor_tool(
+        mitigation_auditor_tool = initialise_mitigation_auditor_tool_with_validation(
             mcp_servers=[filesystem_mcp_server, aws_mcp_server]
         )
 
@@ -113,7 +126,7 @@ async def main() -> None:
             tools=coordinator_tools,
         )
 
-        with trace("Threat modelling workflow"):
+        with trace("Threat modelling workflow (with validation)"):
             result = Runner.run_streamed(
                 coordinator_agent,
                 "Run the full threat identification and risk assessment workflow.",

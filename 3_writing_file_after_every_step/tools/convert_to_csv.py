@@ -4,10 +4,10 @@ import os
 from agents import function_tool
 
 THREATS_JSON_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "threats.json"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "outputs", "threats.json"
 )
 THREATS_CSV_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "threats.csv"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "outputs", "threats.csv"
 )
 
 
