@@ -26,12 +26,12 @@ INSTRUCTIONS = f"""
     output of the previous step.
 
     Workflow - execute in this exact order, ONE TOOL PER RESPONSE:
-    1. Read context.md using the filesystem read_file tool. This contains business context about
+    1. Read inputs/context.md using the filesystem read_file tool. This contains business context about
        what's critical, what data is sensitive, compliance requirements, and known gaps.
        Extract the service/project name from it.
-       If context.md does not exist, proceed without it.
-    2. Read the mermaid.md architecture diagram using the filesystem read_file tool.
-    3. Read the cloud-formation.yaml file using the filesystem read_file tool. This contains
+       If inputs/context.md does not exist, proceed without it.
+    2. Read the inputs/mermaid.md architecture diagram using the filesystem read_file tool.
+    3. Read the inputs/cloud-formation.yaml file using the filesystem read_file tool. This contains
        actual AWS resource definitions. It may have formatting issues or unresolved imports —
        that's fine. If the file does not exist, proceed without it.
     4. Create the initial outputs/threats.json file using the filesystem write_file tool with this content:
@@ -68,6 +68,8 @@ INSTRUCTIONS = f"""
     Rules:
     - Execute tools in the exact order above. Each depends on the previous outputs.
     - NEVER call more than one tool in a single response. Wait for each tool to finish.
+    - If a tool returns a message starting with "VALIDATION FAILED after", STOP the workflow
+      immediately and report the failure to the user. Do NOT retry the tool yourself.
     - Pass the full business context, CloudFormation, and diagram to workers so they can do
       their job effectively — even though they read/write threats.json themselves, they still
       need this context to make good decisions.

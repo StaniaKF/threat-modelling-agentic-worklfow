@@ -22,11 +22,13 @@ _INSTRUCTIONS = """
     1. Read outputs/threats.json using the filesystem MCP read_file tool.
     2. Parse the JSON. The "threats" array should contain objects with stride_category, element,
        threat, attack_method, impact, likelihood, and risk.
-    3. For each threat object, identify ALL possible mitigations across these categories:
+    3. For each threat object, identify the most relevant mitigations across these categories:
        - Preventive: Controls that stop the threat from occurring
        - Detective: Controls that detect when the threat is occurring
        - Corrective: Controls that remediate after the threat occurs
        - Compensating: Alternative controls when primary ones aren't feasible
+       AIM FOR 4-8 MITIGATIONS PER THREAT. Focus on the most impactful and realistic controls.
+       Do NOT list more than 10 mitigations for any single threat.
     4. Add this field to each threat object:
        - "all_possible_mitigations": an array of strings, where each string is one mitigation
          Example: ["Response schema validation on downstream API responses",

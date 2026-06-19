@@ -16,6 +16,9 @@ wheels/
 context.md
 cloud-formation.yaml
 
+# Input files (project-specific)
+inputs/
+
 # Generated outputs
 threats.csv
 threats.json

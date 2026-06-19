@@ -34,7 +34,7 @@ CLIENT = AsyncOpenAI(
     timeout=300.0,
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path.cwd()
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 
 

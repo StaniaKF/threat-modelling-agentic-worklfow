@@ -11,7 +11,7 @@ The error string is fed back to the agent on retry so it knows exactly what to f
 import json
 from pathlib import Path
 
-THREATS_JSON = Path(__file__).resolve().parent.parent / "outputs" / "threats.json"
+THREATS_JSON = Path.cwd() / "outputs" / "threats.json"
 
 # Risk matrix from the Risk Assessor agent instructions.
 # Key: (impact, likelihood) -> expected risk
@@ -201,6 +201,12 @@ def validate_after_mitigation_planner(expected_threat_count: int) -> str | None:
             continue
         if len(mitigations) == 0:
             errors.append(f"Threat {i} ({t.get('element')}): all_possible_mitigations is empty")
+            continue
+        if len(mitigations) > 10:
+            errors.append(
+                f"Threat {i} ({t.get('element')}): all_possible_mitigations has {len(mitigations)} items "
+                f"(max 10 allowed — reduce to the most impactful controls)"
+            )
             continue
         # Check all items are non-empty strings
         for j, m in enumerate(mitigations):

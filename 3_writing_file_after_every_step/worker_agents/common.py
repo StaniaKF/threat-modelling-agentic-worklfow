@@ -19,7 +19,7 @@ CLIENT = AsyncOpenAI(
     timeout=300.0,
 )
 
-threat_modelling_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+threat_modelling_path = os.getcwd()
 
 filesystem_params: dict[str, Any] = {
     "command": os.getenv("NPX_PATH", "npx"),
@@ -74,7 +74,7 @@ def agent_as_tool(
 
 
 # Path to threats.json used for snapshotting pre-state
-THREATS_JSON_PATH = Path(__file__).resolve().parent.parent / "outputs" / "threats.json"
+THREATS_JSON_PATH = Path.cwd() / "outputs" / "threats.json"
 
 
 def agent_as_tool_with_validation(

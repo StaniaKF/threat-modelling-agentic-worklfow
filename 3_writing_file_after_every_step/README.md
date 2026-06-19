@@ -23,8 +23,12 @@ The workflow reads a Mermaid architecture diagram, runs the full analysis pipeli
 cp .env.example .env
 # Edit .env with your values
 
-cp context.md.example context.md
-# Edit context.md with your project-specific business context
+# Create inputs directory with your project files
+mkdir inputs
+cp context.md.example inputs/context.md
+# Edit inputs/context.md with your project-specific business context
+# Add inputs/mermaid.md (your architecture diagram)
+# Add inputs/cloud-formation.yaml (your AWS resource definitions, optional)
 
 make install
 ```
@@ -36,17 +40,56 @@ Log in to AWS first:
 aws sso login
 ```
 
+**CLI (recommended):**
+```bash
+uv run threat-model
+```
+
+Or directly:
+```bash
+uv run python main_as_cli.py
+```
+
 **Without validation** (basic workflow):
 ```bash
 uv run python main.py
 ```
 
-**With validation** (recommended — includes programmatic checks and retry):
+**With validation** (programmatic checks and retry):
 ```bash
 uv run python main_with_validation.py
 ```
 
-Both write outputs to `outputs/` (threats.json, threats.csv, analysis.md, trace).
+All entry points expect `inputs/` and `outputs/` in the current working directory. Outputs are cleaned at the start of each run.
+
+### Building and Installing as a Package
+
+```bash
+# Build the wheel
+uv build
+
+# Install it globally (makes `threat-model` available anywhere)
+pip install dist/threat_modelling_agentic_worklfow-0.1.0-py3-none-any.whl
+
+# Then run from any directory that has inputs/ and .env
+threat-model
+```
+
+## Directory Layout
+
+```
+your-project/
+├── inputs/                          # Your project-specific input files
+│   ├── context.md                   # Business context (required for best results)
+│   ├── mermaid.md                   # Architecture diagram (required)
+│   └── cloud-formation.yaml         # AWS resource definitions (optional)
+├── outputs/                         # Generated outputs (created by the script)
+│   ├── threats.json
+│   ├── threats.csv
+│   ├── analysis.md
+│   └── trace_output.json
+└── .env                             # API keys and config (or set as env vars)
+```
 
 ## Validation System
 
@@ -76,8 +119,9 @@ The OpenAI Agents SDK has a guardrails feature, but it's designed for checking t
 ## Project Structure
 
 ```
-├── main.py                          # Basic workflow (no validation)
+├── main_as_cli.py                   # CLI entry point (Typer, recommended)
 ├── main_with_validation.py          # Workflow with validation + retry
+├── main.py                          # Basic workflow (no validation)
 ├── coordinator_agent.py             # Coordinator agent definition
 ├── worker_agents/
 │   ├── common.py                    # Shared config, agent_as_tool, agent_as_tool_with_validation
@@ -92,14 +136,16 @@ The OpenAI Agents SDK has a guardrails feature, but it's designed for checking t
 │   └── convert_to_csv.py            # JSON → pipe-delimited CSV converter
 ├── utils/
 │   └── get_trace.py                 # Local trace file exporter
+├── inputs/                          # Project-specific inputs (gitignored)
+│   ├── context.md
+│   ├── mermaid.md
+│   └── cloud-formation.yaml
 ├── outputs/                         # Generated outputs (gitignored)
 │   ├── threats.json
 │   ├── threats.csv
 │   ├── analysis.md
-│   └── trace_output*.json
-├── context.md                       # Business context (gitignored, project-specific)
-├── mermaid.md                       # Architecture diagram
-└── cloud-formation.yaml             # AWS resource definitions (gitignored)
+│   └── trace_output.json
+└── .env                             # API keys (gitignored)
 ```
 
 ## Business Context (`context.md`)
@@ -145,3 +191,39 @@ Provides the agents with actual AWS resource definitions. Helps them understand 
 3. **Programmatic validation** — deterministic Python checks catch errors that prompt-based instructions alone cannot reliably prevent
 4. **Outputs folder** — all generated files go to `outputs/`, cleaned at the start of each run
 5. **Workers have filesystem MCP** — agents read/write directly instead of relaying through the coordinator (avoids timeout and truncation issues)
+
+## Testing Individual Agents
+
+The `worker_agent_tests/` folder contains integration test scripts that run each worker agent in isolation against real LLM and MCP servers. They seed `outputs/threats.json` with fixture data representing the expected input state for that agent, run the agent, and print a summary of the results.
+
+This is useful for:
+- Iterating on a single agent's instructions without running the full pipeline
+- Verifying an agent works correctly after changing its prompt or model
+- Debugging issues with a specific step in isolation
+
+### Running
+
+Each test is a standalone script run as a module from the project root:
+
+```bash
+# Test the threat identifier (seeds empty threats.json, runs identification)
+uv run python -m worker_agent_tests.test_threat_identifier
+
+# Test the risk assessor (seeds threats with no risk scores)
+uv run python -m worker_agent_tests.test_risk_assessor
+
+# Test the mitigation auditor (seeds threats with mitigations, queries AWS)
+uv run python -m worker_agent_tests.test_mitigation_auditor
+```
+
+### Fixtures
+
+Test fixtures live in `worker_agent_tests/fixtures/` and represent the expected state of `threats.json` at each stage:
+
+| Fixture | Represents state after |
+|---------|----------------------|
+| `threats_initial.json` | Coordinator creates the file (empty threats array) |
+| `threats_after_identifier.json` | Threat Identifier has populated threats |
+| `threats_after_planner.json` | Mitigation Planner has added mitigations |
+
+Each test copies the appropriate fixture to `outputs/threats.json` before running its agent.
