@@ -1,9 +1,4 @@
-from agents import Tool
-from agents.mcp import MCPServerStdio
-
-from .common import AgentProperties, ToolProperties, agent_as_tool, agent_as_tool_with_validation
-
-_INSTRUCTIONS = """
+INSTRUCTIONS = """
     You are an Expert Application Security Architect specialising in threat identification.
 
     Your task: Identify security threats in the system architecture using the STRIDE methodology,
@@ -100,51 +95,3 @@ _INSTRUCTIONS = """
     - Do NOT assess risk, likelihood, or mitigations — that is handled by other agents
     - You MUST read outputs/threats.json first, then write it back with your additions
 """
-
-
-def initialise_threat_identification_tool(
-    mcp_servers: list[MCPServerStdio],
-) -> Tool:
-    agent_properties = AgentProperties(
-        name="Threat Identifier Agent",
-        instructions=_INSTRUCTIONS,
-    )
-
-    tool_properties = ToolProperties(
-        name="threat_identification",
-        description="Identify potential security threats in the provided architecture using STRIDE methodology. Reads/writes outputs/threats.json directly via filesystem MCP.",
-    )
-
-    return agent_as_tool(
-        agent_properties=agent_properties,
-        tool_properties=tool_properties,
-        mcp_servers=mcp_servers,
-    )
-
-
-def initialise_threat_identification_tool_with_validation(
-    mcp_servers: list[MCPServerStdio],
-) -> Tool:
-    from validation import validate_after_threat_identifier
-
-    agent_properties = AgentProperties(
-        name="Threat Identifier Agent",
-        instructions=_INSTRUCTIONS,
-    )
-
-    tool_properties = ToolProperties(
-        name="threat_identification",
-        description="Identify potential security threats in the provided architecture using STRIDE methodology. Reads/writes outputs/threats.json directly via filesystem MCP.",
-    )
-
-    # Threat identifier doesn't have an expected count (it creates threats from scratch),
-    # so we wrap the validator to ignore the count argument.
-    def validator(_expected_count: int) -> str | None:
-        return validate_after_threat_identifier()
-
-    return agent_as_tool_with_validation(
-        agent_properties=agent_properties,
-        tool_properties=tool_properties,
-        validator=validator,
-        mcp_servers=mcp_servers,
-    )

@@ -1,9 +1,4 @@
-from agents import Tool
-from agents.mcp import MCPServerStdio
-
-from .common import AgentProperties, ToolProperties, agent_as_tool, agent_as_tool_with_validation
-
-_INSTRUCTIONS = """
+INSTRUCTIONS = """
     You are a Cybersecurity Risk Assessment Specialist.
 
     Your task: Assess the impact and likelihood of each identified threat,
@@ -74,46 +69,3 @@ _INSTRUCTIONS = """
     - Do NOT identify new threats or suggest mitigations — that is handled by other agents
     - You MUST read outputs/threats.json first, then write it back with your additions
 """
-
-
-def initialise_risk_assessor_tool(
-    mcp_servers: list[MCPServerStdio],
-) -> Tool:
-    agent_properties = AgentProperties(
-        name="Risk Assessor Agent",
-        instructions=_INSTRUCTIONS,
-    )
-
-    tool_properties = ToolProperties(
-        name="risk_assessment",
-        description="Assess the risk level of identified threats based on their potential impact and likelihood. Reads/writes outputs/threats.json directly via filesystem MCP.",
-    )
-
-    return agent_as_tool(
-        agent_properties=agent_properties,
-        tool_properties=tool_properties,
-        mcp_servers=mcp_servers,
-    )
-
-
-def initialise_risk_assessor_tool_with_validation(
-    mcp_servers: list[MCPServerStdio],
-) -> Tool:
-    from validation import validate_after_risk_assessor
-
-    agent_properties = AgentProperties(
-        name="Risk Assessor Agent",
-        instructions=_INSTRUCTIONS,
-    )
-
-    tool_properties = ToolProperties(
-        name="risk_assessment",
-        description="Assess the risk level of identified threats based on their potential impact and likelihood. Reads/writes outputs/threats.json directly via filesystem MCP.",
-    )
-
-    return agent_as_tool_with_validation(
-        agent_properties=agent_properties,
-        tool_properties=tool_properties,
-        validator=validate_after_risk_assessor,
-        mcp_servers=mcp_servers,
-    )

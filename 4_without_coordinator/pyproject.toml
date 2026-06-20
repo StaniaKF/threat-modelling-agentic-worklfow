@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-threat-model = "main_as_cli:app"
+threat-model = "main:app"
 
 [dependency-groups]
 dev = [

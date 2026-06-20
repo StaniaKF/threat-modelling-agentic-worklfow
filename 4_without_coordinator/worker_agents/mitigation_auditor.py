@@ -1,9 +1,4 @@
-from agents import Tool
-from agents.mcp import MCPServerStdio
-
-from .common import AgentProperties, ToolProperties, agent_as_tool, agent_as_tool_with_validation
-
-_INSTRUCTIONS = """
+INSTRUCTIONS = """
     You are a Cloud Security Auditor specialising in AWS infrastructure.
 
     Your task: For each identified threat and its possible mitigations, determine which mitigations
@@ -154,46 +149,3 @@ _INSTRUCTIONS = """
     - Write valid JSON — no trailing commas, proper quoting, no comments
     - You MUST read outputs/threats.json first, then write it back with your additions
 """
-
-
-def initialise_mitigation_auditor_tool(
-    mcp_servers: list[MCPServerStdio],
-) -> Tool:
-    agent_properties = AgentProperties(
-        name="Mitigation Auditor Agent",
-        instructions=_INSTRUCTIONS,
-    )
-
-    tool_properties = ToolProperties(
-        name="mitigation_audit",
-        description="Audit which mitigations are already in place by querying AWS, identify missing ones, propose priorities, and assess remaining risk. Reads/writes outputs/threats.json directly via filesystem MCP.",
-    )
-
-    return agent_as_tool(
-        agent_properties=agent_properties,
-        tool_properties=tool_properties,
-        mcp_servers=mcp_servers,
-    )
-
-
-def initialise_mitigation_auditor_tool_with_validation(
-    mcp_servers: list[MCPServerStdio],
-) -> Tool:
-    from validation import validate_after_mitigation_auditor
-
-    agent_properties = AgentProperties(
-        name="Mitigation Auditor Agent",
-        instructions=_INSTRUCTIONS,
-    )
-
-    tool_properties = ToolProperties(
-        name="mitigation_audit",
-        description="Audit which mitigations are already in place by querying AWS, identify missing ones, propose priorities, and assess remaining risk. Reads/writes outputs/threats.json directly via filesystem MCP.",
-    )
-
-    return agent_as_tool_with_validation(
-        agent_properties=agent_properties,
-        tool_properties=tool_properties,
-        validator=validate_after_mitigation_auditor,
-        mcp_servers=mcp_servers,
-    )

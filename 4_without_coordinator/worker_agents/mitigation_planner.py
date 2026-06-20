@@ -1,9 +1,4 @@
-from agents import Tool
-from agents.mcp import MCPServerStdio
-
-from .common import AgentProperties, ToolProperties, agent_as_tool, agent_as_tool_with_validation
-
-_INSTRUCTIONS = """
+INSTRUCTIONS = """
     You are a Security Mitigation Planning Specialist.
 
     Your task: For each identified threat, determine all possible mitigations,
@@ -78,46 +73,3 @@ _INSTRUCTIONS = """
     - Do NOT determine which mitigations are already in place — that is handled by the next agent
     - You MUST read outputs/threats.json first, then write it back with your additions
 """
-
-
-def initialise_mitigation_planner_tool(
-    mcp_servers: list[MCPServerStdio],
-) -> Tool:
-    agent_properties = AgentProperties(
-        name="Mitigation Planner Agent",
-        instructions=_INSTRUCTIONS,
-    )
-
-    tool_properties = ToolProperties(
-        name="mitigation_planning",
-        description="Identify all possible mitigations for threats. Reads/writes outputs/threats.json directly via filesystem MCP.",
-    )
-
-    return agent_as_tool(
-        agent_properties=agent_properties,
-        tool_properties=tool_properties,
-        mcp_servers=mcp_servers,
-    )
-
-
-def initialise_mitigation_planner_tool_with_validation(
-    mcp_servers: list[MCPServerStdio],
-) -> Tool:
-    from validation import validate_after_mitigation_planner
-
-    agent_properties = AgentProperties(
-        name="Mitigation Planner Agent",
-        instructions=_INSTRUCTIONS,
-    )
-
-    tool_properties = ToolProperties(
-        name="mitigation_planning",
-        description="Identify all possible mitigations for threats. Reads/writes outputs/threats.json directly via filesystem MCP.",
-    )
-
-    return agent_as_tool_with_validation(
-        agent_properties=agent_properties,
-        tool_properties=tool_properties,
-        validator=validate_after_mitigation_planner,
-        mcp_servers=mcp_servers,
-    )

@@ -1,14 +1,12 @@
 import json
 import os
 
-from agents import function_tool
 
 THREATS_JSON_PATH = os.path.join(os.getcwd(), "outputs", "threats.json")
 THREATS_CSV_PATH = os.path.join(os.getcwd(), "outputs", "threats.csv")
 
 
-@function_tool
-def convert_to_csv() -> str:
+def convert_to_csv_from_file() -> str:
     """Read threats.json and convert it to a pipe-delimited threats.csv file.
 
     Returns a confirmation message on success or an error message on failure.
@@ -69,4 +67,4 @@ def convert_to_csv() -> str:
     with open(THREATS_CSV_PATH, "w", encoding="utf-8") as f:
         f.write(csv_content)
 
-    return f"Successfully converted {len(threats)} threats from threats.json to threats.csv (pipe-delimited)."
+    return f"Successfully converted {len(threats)} threats to threats.csv (pipe-delimited)."
