@@ -1,19 +1,19 @@
 from agents import Tool
 from agents.mcp import MCPServerStdio
 
-from .common import AgentProperties, ToolProperties, agent_as_tool
+from .common import AgentProperties, ToolProperties, agent_as_tool, agent_as_tool_with_validation
 
 _INSTRUCTIONS = """
     You are an Expert Application Security Architect specialising in threat identification.
 
     Your task: Identify security threats in the system architecture using the STRIDE methodology,
-    then write the results directly to the shared threats.json file.
+    then write the results directly to the shared outputs/threats.json file.
 
     You HAVE filesystem MCP access. You will:
-    - Read threats.json (current state: contains "metadata" with date and service name, and an empty "threats" array)
+    - Read outputs/threats.json (current state: contains "metadata" with date and service name, and an empty "threats" array)
     - Populate the "threats" array with threat objects (each containing stride_category, element, threat, attack_method; all other fields set to null)
-    - Write the updated threats.json back
-    - Write analysis.md with the structured analysis
+    - Write the updated outputs/threats.json back
+    - Write outputs/analysis.md with the structured analysis
 
     INPUTS PROVIDED (via the coordinator's tool call message):
     - Architecture diagram (mermaid format) showing system components and connections
@@ -52,7 +52,7 @@ _INSTRUCTIONS = """
       reduced confidentiality of vehicle registration, vehicle listing, and registration status."
 
     WORKFLOW:
-    1. Read the current threats.json file using the filesystem MCP read_file tool.
+    1. Read the current outputs/threats.json file using the filesystem MCP read_file tool.
     2. Parse the JSON — it should already have a "metadata" section with "date_of_analysis" and
        "service_project" fields.
     3. Perform your analysis (Assets, Entry Points, Trust Boundaries, Attacker Profiles).
@@ -64,11 +64,11 @@ _INSTRUCTIONS = """
        - "threat": the threat written in threat grammar format
        - "attack_method": specific description of how the attack works
        Do NOT include any other fields — later agents will add their own fields.
-    6. Write the updated threats.json back using the filesystem MCP write_file tool.
+    6. Write the updated outputs/threats.json back using the filesystem MCP write_file tool.
        IMPORTANT: Validate that the JSON is well-formed before writing.
-    7. Write the structured analysis to analysis.md using the filesystem MCP write_file tool.
+    7. Write the structured analysis to outputs/analysis.md using the filesystem MCP write_file tool.
 
-    EXAMPLE threats.json after your work:
+    EXAMPLE outputs/threats.json after your work:
     {
       "metadata": {
         "date_of_analysis": "2026-06-14",
@@ -85,7 +85,7 @@ _INSTRUCTIONS = """
     }
 
     VALIDATION:
-    Before writing threats.json:
+    Before writing outputs/threats.json:
     - Validate that the output is valid JSON (parseable)
     - Check that every threat object has exactly 4 fields: stride_category, element, threat, attack_method
     - Check that all 4 fields are non-null strings
@@ -98,7 +98,7 @@ _INSTRUCTIONS = """
     - The attack_method field MUST contain a full description, never abbreviated
     - Write valid JSON — no trailing commas, proper quoting, no comments
     - Do NOT assess risk, likelihood, or mitigations — that is handled by other agents
-    - You MUST read threats.json first, then write it back with your additions
+    - You MUST read outputs/threats.json first, then write it back with your additions
 """
 
 
@@ -112,11 +112,39 @@ def initialise_threat_identification_tool(
 
     tool_properties = ToolProperties(
         name="threat_identification",
-        description="Identify potential security threats in the provided architecture using STRIDE methodology. Reads/writes threats.json directly via filesystem MCP.",
+        description="Identify potential security threats in the provided architecture using STRIDE methodology. Reads/writes outputs/threats.json directly via filesystem MCP.",
     )
 
     return agent_as_tool(
         agent_properties=agent_properties,
         tool_properties=tool_properties,
+        mcp_servers=mcp_servers,
+    )
+
+
+def initialise_threat_identification_tool_with_validation(
+    mcp_servers: list[MCPServerStdio],
+) -> Tool:
+    from validation import validate_after_threat_identifier
+
+    agent_properties = AgentProperties(
+        name="Threat Identifier Agent",
+        instructions=_INSTRUCTIONS,
+    )
+
+    tool_properties = ToolProperties(
+        name="threat_identification",
+        description="Identify potential security threats in the provided architecture using STRIDE methodology. Reads/writes outputs/threats.json directly via filesystem MCP.",
+    )
+
+    # Threat identifier doesn't have an expected count (it creates threats from scratch),
+    # so we wrap the validator to ignore the count argument.
+    def validator(_expected_count: int) -> str | None:
+        return validate_after_threat_identifier()
+
+    return agent_as_tool_with_validation(
+        agent_properties=agent_properties,
+        tool_properties=tool_properties,
+        validator=validator,
         mcp_servers=mcp_servers,
     )

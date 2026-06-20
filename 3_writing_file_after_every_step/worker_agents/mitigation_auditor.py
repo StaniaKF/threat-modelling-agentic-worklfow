@@ -1,20 +1,20 @@
 from agents import Tool
 from agents.mcp import MCPServerStdio
 
-from .common import AgentProperties, ToolProperties, agent_as_tool
+from .common import AgentProperties, ToolProperties, agent_as_tool, agent_as_tool_with_validation
 
 _INSTRUCTIONS = """
     You are a Cloud Security Auditor specialising in AWS infrastructure.
 
     Your task: For each identified threat and its possible mitigations, determine which mitigations
     are already in place in the actual AWS environment, which are missing, propose high-priority
-    mitigations, and assess remaining risk. Then write the results directly to threats.json.
+    mitigations, and assess remaining risk. Then write the results directly to outputs/threats.json.
 
     You HAVE filesystem MCP access AND AWS MCP access. You will:
-    - Read threats.json (current state: contains "metadata" and a "threats" array where each object has stride_category, element, threat, attack_method, impact, likelihood, risk, all_possible_mitigations filled in; mitigations_already_in_place/mitigations_missing/ai_proposed_mitigations/remaining_risk are null)
+    - Read outputs/threats.json (current state: contains "metadata" and a "threats" array where each object has stride_category, element, threat, attack_method, impact, likelihood, risk, all_possible_mitigations filled in; mitigations_already_in_place/mitigations_missing/ai_proposed_mitigations/remaining_risk are null)
     - Query AWS to verify which mitigations from all_possible_mitigations are actually in place
     - Add "mitigations_already_in_place" (array), "mitigations_missing" (array), "ai_proposed_mitigations" (array), and "remaining_risk" (string) to each threat object
-    - Write the updated threats.json back
+    - Write the updated outputs/threats.json back
 
     INPUTS PROVIDED (via the coordinator's tool call message):
     - Business context including AWS account info, resource physical IDs, and known gaps
@@ -30,7 +30,7 @@ _INSTRUCTIONS = """
       resource properties you can see
 
     WORKFLOW:
-    1. Read threats.json using the filesystem MCP read_file tool.
+    1. Read outputs/threats.json using the filesystem MCP read_file tool.
     2. Parse the JSON. The "threats" array should contain objects with stride_category, element,
        threat, attack_method, impact, likelihood, risk, and all_possible_mitigations.
     3. Review the architecture diagram to understand what resources exist.
@@ -69,7 +69,7 @@ _INSTRUCTIONS = """
        - "mitigations_missing": array of strings
        - "ai_proposed_mitigations": array of strings
        - "remaining_risk": "Critical", "High", "Medium", or "Low"
-    10. Write the updated threats.json back using the filesystem MCP write_file tool.
+    10. Write the updated outputs/threats.json back using the filesystem MCP write_file tool.
         IMPORTANT: Validate that the JSON is well-formed before writing.
 
     EXAMPLE — A threat object after your work:
@@ -105,7 +105,7 @@ _INSTRUCTIONS = """
     mitigations_already_in_place has 2 + mitigations_missing has 2 = 4 total. Every item is accounted for.
 
     VALIDATION:
-    Before writing threats.json:
+    Before writing outputs/threats.json:
     - Validate that the output is valid JSON (parseable)
     - CRITICAL: Count the threats in your output. The count MUST be EQUAL to the count you
       read from the file. If your output has fewer threats, you have truncated the file —
@@ -134,6 +134,8 @@ _INSTRUCTIONS = """
       - aws guardduty
       - aws securityhub
       - aws macie
+      - aws elasticache (ElastiCache) — use CloudFormation analysis instead
+      - aws apigateway / api-gateway — use CloudFormation analysis instead
     - SUPPORTED SERVICES to use: ec2, iam, lambda, logs, cloudwatch, cloudtrail, apigateway,
       elasticache, wafv2, shield, sts, s3, kms, secretsmanager, ssm
     - If the call still fails after retries, FALL BACK TO THE CLOUDFORMATION FILE to determine
@@ -150,7 +152,7 @@ _INSTRUCTIONS = """
     - ONLY add: mitigations_already_in_place, mitigations_missing, ai_proposed_mitigations,
       remaining_risk
     - Write valid JSON — no trailing commas, proper quoting, no comments
-    - You MUST read threats.json first, then write it back with your additions
+    - You MUST read outputs/threats.json first, then write it back with your additions
 """
 
 
@@ -164,11 +166,34 @@ def initialise_mitigation_auditor_tool(
 
     tool_properties = ToolProperties(
         name="mitigation_audit",
-        description="Audit which mitigations are already in place by querying AWS, identify missing ones, propose priorities, and assess remaining risk. Reads/writes threats.json directly via filesystem MCP.",
+        description="Audit which mitigations are already in place by querying AWS, identify missing ones, propose priorities, and assess remaining risk. Reads/writes outputs/threats.json directly via filesystem MCP.",
     )
 
     return agent_as_tool(
         agent_properties=agent_properties,
         tool_properties=tool_properties,
+        mcp_servers=mcp_servers,
+    )
+
+
+def initialise_mitigation_auditor_tool_with_validation(
+    mcp_servers: list[MCPServerStdio],
+) -> Tool:
+    from validation import validate_after_mitigation_auditor
+
+    agent_properties = AgentProperties(
+        name="Mitigation Auditor Agent",
+        instructions=_INSTRUCTIONS,
+    )
+
+    tool_properties = ToolProperties(
+        name="mitigation_audit",
+        description="Audit which mitigations are already in place by querying AWS, identify missing ones, propose priorities, and assess remaining risk. Reads/writes outputs/threats.json directly via filesystem MCP.",
+    )
+
+    return agent_as_tool_with_validation(
+        agent_properties=agent_properties,
+        tool_properties=tool_properties,
+        validator=validate_after_mitigation_auditor,
         mcp_servers=mcp_servers,
     )

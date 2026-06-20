@@ -16,6 +16,9 @@ wheels/
 context.md
 cloud-formation.yaml
 
+# Input files (project-specific)
+inputs/
+
 # Generated outputs
 threats.csv
 threats.json
@@ -23,6 +26,8 @@ mermaid.md
 analysis.md
 trace_output.json
 trace_test_*.json
+trace_output_with_validation.json
+outputs/
 
 
 .DS_Store
