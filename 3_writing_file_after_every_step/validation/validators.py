@@ -93,7 +93,11 @@ def validate_after_threat_identifier() -> str | None:
 
 
 def validate_after_risk_assessor(expected_threat_count: int) -> str | None:
-    """Validate threats.json after the Risk Assessor agent has run."""
+    """Validate threats.json after the Risk Assessor agent has run.
+
+    Checks that impact and likelihood are valid, then applies the risk matrix
+    deterministically in code (the agent no longer calculates risk itself).
+    """
     data, err = _load_threats()
     if err:
         return err
@@ -114,19 +118,16 @@ def validate_after_risk_assessor(expected_threat_count: int) -> str | None:
             f"(truncation or duplication detected)"
         )
 
-    # If there are no threats at all, the agent had nothing to work with — that's a
-    # workflow ordering error, not a validation error per se, but we should flag it
+    # If there are no threats at all, the agent had nothing to work with
     if len(threats) == 0:
         return "threats array is empty — risk assessment requires threats to be identified first"
 
     errors: list[str] = []
     valid_levels = {"Low", "Medium", "High"}
-    valid_risk = {"Low", "Medium", "High", "Critical"}
 
     for i, t in enumerate(threats):
         impact = t.get("impact")
         likelihood = t.get("likelihood")
-        risk = t.get("risk")
 
         # Check that the fields were actually added (not null/missing)
         if impact is None:
@@ -135,9 +136,6 @@ def validate_after_risk_assessor(expected_threat_count: int) -> str | None:
         if likelihood is None:
             errors.append(f"Threat {i} ({t.get('element')}): likelihood is null — agent did not assess this threat")
             continue
-        if risk is None:
-            errors.append(f"Threat {i} ({t.get('element')}): risk is null — agent did not assess this threat")
-            continue
 
         if impact not in valid_levels:
             errors.append(f"Threat {i} ({t.get('element')}): impact '{impact}' not in {valid_levels}")
@@ -145,19 +143,18 @@ def validate_after_risk_assessor(expected_threat_count: int) -> str | None:
         if likelihood not in valid_levels:
             errors.append(f"Threat {i} ({t.get('element')}): likelihood '{likelihood}' not in {valid_levels}")
             continue
-        if risk not in valid_risk:
-            errors.append(f"Threat {i} ({t.get('element')}): risk '{risk}' not in {valid_risk}")
-            continue
 
-        # Validate risk matches the matrix
-        expected_risk = RISK_MATRIX[(impact, likelihood)]
-        if risk != expected_risk:
-            errors.append(
-                f"Threat {i} ({t.get('element')}): risk is '{risk}' but matrix says "
-                f"Impact={impact} + Likelihood={likelihood} → '{expected_risk}'"
-            )
+    if errors:
+        return "\n".join(errors)
 
-    return "\n".join(errors) if errors else None
+    # Validation passed — now apply the risk matrix deterministically
+    for t in threats:
+        t["risk"] = RISK_MATRIX[(t["impact"], t["likelihood"])]
+
+    # Write back with the computed risk values
+    THREATS_JSON.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    return None
 
 
 def validate_after_mitigation_planner(expected_threat_count: int) -> str | None:

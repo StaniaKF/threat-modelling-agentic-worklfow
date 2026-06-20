@@ -206,13 +206,16 @@ This is useful for:
 Each test is a standalone script run as a module from the project root:
 
 ```bash
-# Test the threat identifier (seeds empty threats.json, runs identification)
+# Test the threat identifier (seeds empty threats.json, runs threat identification)
 uv run python -m worker_agent_tests.test_threat_identifier
 
-# Test the risk assessor (seeds threats with no risk scores)
+# Test the risk assessor (seeds threats.json with threats, determines impact and likelyhood)
 uv run python -m worker_agent_tests.test_risk_assessor
 
-# Test the mitigation auditor (seeds threats with mitigations, queries AWS)
+# Test the mitigation_planner (seeds threats.json with threats and risks, proposes mitigations)
+uv run python -m worker_agent_tests.test_mitigation_planner
+
+# Test the mitigation auditor (seeds threats with mitigations, queries AWS -> determines which mitigations are missing)
 uv run python -m worker_agent_tests.test_mitigation_auditor
 ```
 
@@ -220,10 +223,13 @@ uv run python -m worker_agent_tests.test_mitigation_auditor
 
 Test fixtures live in `worker_agent_tests/fixtures/` and represent the expected state of `threats.json` at each stage:
 
-| Fixture | Represents state after |
-|---------|----------------------|
-| `threats_initial.json` | Coordinator creates the file (empty threats array) |
-| `threats_after_identifier.json` | Threat Identifier has populated threats |
-| `threats_after_planner.json` | Mitigation Planner has added mitigations |
+| Fixture                         | Represents state after                             |
+|---------------------------------|----------------------------------------------------|
+| `threats_initial.json`          | Coordinator creates the file (empty threats array) |
+| `threats_after_identifier.json` | Threat Identifier has populated threats            |
+| `threats_after_risk.json`       | Risk assessor has populated likelihood and impact  |
+| `threats_after_planner.json`    | Mitigation Planner has added mitigations           |
 
 Each test copies the appropriate fixture to `outputs/threats.json` before running its agent.
+
+Traces are recorded at the root of the repo.
