@@ -1,0 +1,235 @@
+# Threat Modelling Agentic Workflow — with AWS MCP Server
+
+An automated threat modelling pipeline built with the OpenAI Agents SDK. A coordinator agent orchestrates specialist worker agents that use MCP (Model Context Protocol) servers to:
+
+1. **Identify threats** in a system architecture using the STRIDE methodology
+2. **Assess risk** by evaluating impact and likelihood for each threat
+3. **Plan mitigations** by proposing controls for high-risk threats
+4. **Audit mitigations** by checking which controls are already in place via the AWS MCP server
+
+The workflow reads a Mermaid architecture diagram, runs the full analysis pipeline, and outputs a structured threat model as JSON and CSV in the `outputs/` folder.
+
+## Prerequisites
+
+- Python 3.14+
+- [uv](https://docs.astral.sh/uv/) package manager
+- Node.js (for the filesystem MCP server)
+- An AWS profile with access to the target account
+- A LiteLLM proxy (or compatible OpenAI API endpoint)
+
+## Setup
+
+```bash
+cp .env.example .env
+# Edit .env with your values
+
+# Create inputs directory with your project files
+mkdir inputs
+cp context.md.example inputs/context.md
+# Edit inputs/context.md with your project-specific business context
+# Add inputs/mermaid.md (your architecture diagram)
+# Add inputs/cloud-formation.yaml (your AWS resource definitions, optional)
+
+make install
+```
+
+## Running
+
+Log in to AWS first:
+```bash
+aws sso login
+```
+
+**CLI (recommended):**
+```bash
+uv run threat-model
+```
+
+Or directly:
+```bash
+uv run python main_as_cli.py
+```
+
+**Without validation** (basic workflow):
+```bash
+uv run python main.py
+```
+
+**With validation** (programmatic checks and retry):
+```bash
+uv run python main_with_validation.py
+```
+
+All entry points expect `inputs/` and `outputs/` in the current working directory. Outputs are cleaned at the start of each run.
+
+### Building and Installing as a Package
+
+```bash
+# Build the wheel
+uv build
+
+# Install it globally (makes `threat-model` available anywhere)
+pip install dist/threat_modelling_agentic_worklfow-0.1.0-py3-none-any.whl
+
+# Then run from any directory that has inputs/ and .env
+threat-model
+```
+
+## Directory Layout
+
+```
+your-project/
+├── inputs/                          # Your project-specific input files
+│   ├── context.md                   # Business context (required for best results)
+│   ├── mermaid.md                   # Architecture diagram (required)
+│   └── cloud-formation.yaml         # AWS resource definitions (optional)
+├── outputs/                         # Generated outputs (created by the script)
+│   ├── threats.json
+│   ├── threats.csv
+│   ├── analysis.md
+│   └── trace_output.json
+└── .env                             # API keys and config (or set as env vars)
+```
+
+## Validation System
+
+`main_with_validation.py` wraps each worker agent with a programmatic validation step. After each agent writes `outputs/threats.json`, a Python validator reads the file and checks it for correctness. If validation fails, the agent is automatically re-invoked with the specific errors appended to its input (up to 2 retries).
+
+### What each validator checks
+
+| Agent | Validator checks |
+|-------|-----------------|
+| Threat Identifier | Threats array is non-empty, all 4 required fields present and non-null, valid STRIDE categories |
+| Risk Assessor | Threat count preserved (no truncation), impact/likelihood/risk are non-null, **risk correctly matches the defined matrix** (e.g. Impact=High + Likelihood=Medium must equal Risk=High) |
+| Mitigation Planner | Threat count preserved, `all_possible_mitigations` is a non-empty array of strings for every threat |
+| Mitigation Auditor | Threat count preserved, `mitigations_already_in_place` + `mitigations_missing` count equals `all_possible_mitigations` count, `remaining_risk` is a valid level |
+
+### How retries work
+
+1. Agent runs and writes to `outputs/threats.json`
+2. Validator reads the file and checks constraints
+3. If valid → proceed to next agent
+4. If invalid → agent is re-invoked with the original input + error details (e.g. "Threat 3: risk is 'Medium' but matrix says Impact=High + Likelihood=Medium → 'High'")
+5. Up to 2 retries (3 attempts total) before reporting failure
+
+### Why not SDK guardrails?
+
+The OpenAI Agents SDK has a guardrails feature, but it's designed for checking the agent's response text (content safety, PII). Our agents' real output is a file on disk (written via MCP tools), not their response text. Additionally, guardrails halt on failure — they don't retry. The custom validation wrapper gives us file-level checks with feedback-driven retries.
+
+## Project Structure
+
+```
+├── main_as_cli.py                   # CLI entry point (Typer, recommended)
+├── main_with_validation.py          # Workflow with validation + retry
+├── main.py                          # Basic workflow (no validation)
+├── coordinator_agent.py             # Coordinator agent definition
+├── worker_agents/
+│   ├── common.py                    # Shared config, agent_as_tool, agent_as_tool_with_validation
+│   ├── threat_identifier.py         # STRIDE threat identification
+│   ├── risk_assessor.py             # Impact/likelihood/risk assessment
+│   ├── mitigation_planner.py        # Mitigation proposals
+│   └── mitigation_auditor.py        # AWS audit of mitigations in place
+├── validation/
+│   ├── __init__.py
+│   └── validators.py                # Programmatic validators for each agent step
+├── tools/
+│   └── convert_to_csv.py            # JSON → pipe-delimited CSV converter
+├── utils/
+│   └── get_trace.py                 # Local trace file exporter
+├── inputs/                          # Project-specific inputs (gitignored)
+│   ├── context.md
+│   ├── mermaid.md
+│   └── cloud-formation.yaml
+├── outputs/                         # Generated outputs (gitignored)
+│   ├── threats.json
+│   ├── threats.csv
+│   ├── analysis.md
+│   └── trace_output.json
+└── .env                             # API keys (gitignored)
+```
+
+## Business Context (`context.md`)
+
+The `context.md` file provides project-specific business context that helps the agents prioritise threats and mitigations accurately. It is **not committed to the repo** (gitignored) because it changes per project and may contain sensitive details.
+
+Copy the example and fill in your details:
+
+```bash
+cp context.md.example context.md
+```
+
+The file should include:
+
+- **Project / Service Name** — what the system is called
+- **What the system does** — brief description of purpose and data processed
+- **Critical Components** — which parts of the architecture matter most and why (include physical IDs)
+- **Sensitive Data** — what PII, secrets, or commercially sensitive data flows through the system
+- **Compliance / Regulatory Requirements** — GDPR, PCI-DSS, SOC2, etc.
+- **AWS Account Info** — account number, region, and resource physical IDs
+- **Trust Assumptions** — what you trust and what you don't
+
+## CloudFormation File (`cloud-formation.yaml`)
+
+Provides the agents with actual AWS resource definitions. Helps them understand the intended configuration so they can identify threats and verify mitigations against live state.
+
+- Include security-relevant resources: IAM roles/policies, security groups, Lambda functions, API Gateways, caches, VPCs, etc.
+- No need for perfect formatting — agents can handle imperfect YAML
+- If `cloud-formation.yaml` doesn't exist, the workflow proceeds without it
+
+## Available Commands
+
+| Command        | Description                              |
+|----------------|------------------------------------------|
+| `make install` | Install all dependencies (including dev) |
+| `make lint`    | Check for linting and formatting issues  |
+| `make format`  | Auto-fix formatting issues               |
+
+## Key Design Decisions
+
+1. **JSON over CSV** — agents work with `threats.json` as the shared data format (models handle JSON far more reliably than positional tabular formats)
+2. **Sequential execution** — `ModelSettings(parallel_tool_calls=False)` on the coordinator prevents race conditions where agents read stale data
+3. **Programmatic validation** — deterministic Python checks catch errors that prompt-based instructions alone cannot reliably prevent
+4. **Outputs folder** — all generated files go to `outputs/`, cleaned at the start of each run
+5. **Workers have filesystem MCP** — agents read/write directly instead of relaying through the coordinator (avoids timeout and truncation issues)
+
+## Testing Individual Agents
+
+The `worker_agent_tests/` folder contains integration test scripts that run each worker agent in isolation against real LLM and MCP servers. They seed `outputs/threats.json` with fixture data representing the expected input state for that agent, run the agent, and print a summary of the results.
+
+This is useful for:
+- Iterating on a single agent's instructions without running the full pipeline
+- Verifying an agent works correctly after changing its prompt or model
+- Debugging issues with a specific step in isolation
+
+### Running
+
+Each test is a standalone script run as a module from the project root:
+
+```bash
+# Test the threat identifier (seeds empty threats.json, runs threat identification)
+uv run python -m worker_agent_tests.test_threat_identifier
+
+# Test the risk assessor (seeds threats.json with threats, determines impact and likelyhood)
+uv run python -m worker_agent_tests.test_risk_assessor
+
+# Test the mitigation_planner (seeds threats.json with threats and risks, proposes mitigations)
+uv run python -m worker_agent_tests.test_mitigation_planner
+
+# Test the mitigation auditor (seeds threats with mitigations, queries AWS -> determines which mitigations are missing)
+uv run python -m worker_agent_tests.test_mitigation_auditor
+```
+
+### Fixtures
+
+Test fixtures live in `worker_agent_tests/fixtures/` and represent the expected state of `threats.json` at each stage:
+
+| Fixture                         | Represents state after                             |
+|---------------------------------|----------------------------------------------------|
+| `threats_initial.json`          | Coordinator creates the file (empty threats array) |
+| `threats_after_identifier.json` | Threat Identifier has populated threats            |
+| `threats_after_risk.json`       | Risk assessor has populated likelihood and impact  |
+| `threats_after_planner.json`    | Mitigation Planner has added mitigations           |
+
+Each test copies the appropriate fixture to `outputs/threats.json` before running its agent.
+
+Traces are recorded at the root of the repo.

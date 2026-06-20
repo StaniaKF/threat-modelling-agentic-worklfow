@@ -1,0 +1,62 @@
+{
+  "metadata": {
+    "date_of_analysis": "2026-06-15",
+    "service_project": "Smarter Tariff - Small Asset Owner Services"
+  },
+  "threats": [
+    {
+      "stride_category": "Spoofing",
+      "element": "API Gateway",
+      "threat": "[An external attacker] with [conveniently crafted requests] can [impersonate legitimate users], which leads to [unauthorized access to dispatch calculations], resulting in reduced [confidentiality] of [customer charging data].",
+      "attack_method": "An attacker crafts requests that include valid authentication tokens obtained through social engineering methods, allowing them to access sensitive endpoints of the API Gateway.",
+      "impact": "High",
+      "likelihood": "High",
+      "risk": "Critical"
+    },
+    {
+      "stride_category": "Tampering",
+      "element": "Valkey Cache",
+      "threat": "[A malicious insider] with [developer access] can [alter stored dispatch results], which leads to [incorrect data being served], resulting in reduced [integrity] of [customer charging data].",
+      "attack_method": "A developer with access to the Valkey Cache may use privileged permissions to modify cache data without logging these modifications.",
+      "impact": "High",
+      "likelihood": "Medium",
+      "risk": "High"
+    },
+    {
+      "stride_category": "Information Disclosure",
+      "element": "API Gateway",
+      "threat": "[An external attacker] with [exploited endpoint vulnerabilities] can [retrieve sensitive data], which leads to [customer charging history being exposed], resulting in reduced [confidentiality] of [customer charging data].",
+      "attack_method": "An attacker explores the API Gateway for weak endpoints that do not have proper authorization checks in place, allowing them to access customer data.",
+      "impact": "High",
+      "likelihood": "Medium",
+      "risk": "High"
+    },
+    {
+      "stride_category": "Denial of Service",
+      "element": "API Gateway",
+      "threat": "[An external attacker] with [high-volume automated scripts] can [flood the API Gateway with requests], which leads to [service unavailability], resulting in reduced [availability] of [customer services].",
+      "attack_method": "A botnet is set up to automatically send thousands of requests to the API Gateway, overwhelming it and preventing legitimate users from accessing the service.",
+      "impact": "Medium",
+      "likelihood": "High",
+      "risk": "High"
+    },
+    {
+      "stride_category": "Elevation of Privilege",
+      "element": "AWS Console",
+      "threat": "[A compromised developer] with [stolen credentials] can [gain unauthorized access to sensitive resources], which leads to [misuse of the AWS environment], resulting in reduced [confidentiality] of [sensitive assets].",
+      "attack_method": "An attacker steals developer credentials through phishing attacks and uses them to access the AWS Console, where they can modify resource configurations.",
+      "impact": "High",
+      "likelihood": "High",
+      "risk": "Critical"
+    },
+    {
+      "stride_category": "Repudiation",
+      "element": "CloudWatch Logs",
+      "threat": "[A malicious insider] with [access to CloudWatch] can [delete logs], which leads to [loss of audit trail], resulting in reduced [accountability] of [system actions].",
+      "attack_method": "An authorized user accesses CloudWatch and deletes specific logs related to their activities to hide malicious actions.",
+      "impact": "Medium",
+      "likelihood": "Medium",
+      "risk": "Medium"
+    }
+  ]
+}
