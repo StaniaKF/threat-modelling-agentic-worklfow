@@ -9,16 +9,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-WORKER_MODEL = "openai/gpt-4o-mini"
+MODEL = "openai/gpt-4o-mini"
+MAX_RETRIES = 2
 
-threat_modelling_path = os.getcwd()
+THREAT_MODELLING_PATH = os.getcwd()
 
-filesystem_params: dict[str, Any] = {
+FILESYSTEM_MCP_PARAMS: dict[str, Any] = {
     "command": os.getenv("NPX_PATH", "npx"),
-    "args": ["-y", "@modelcontextprotocol/server-filesystem", threat_modelling_path],
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", THREAT_MODELLING_PATH],
 }
 
-aws_mcp_params: dict[str, Any] = {
+AWS_MCP_PARAMS: dict[str, Any] = {
     "command": os.getenv("UVX_PATH", "uvx"),
     "args": [
         "mcp-proxy-for-aws@latest",

@@ -131,8 +131,8 @@ INSTRUCTIONS = """
       - aws macie
       - aws elasticache (ElastiCache) — use CloudFormation analysis instead
       - aws apigateway / api-gateway — use CloudFormation analysis instead
-    - SUPPORTED SERVICES to use: ec2, iam, lambda, logs, cloudwatch, cloudtrail, apigateway,
-      elasticache, wafv2, shield, sts, s3, kms, secretsmanager, ssm
+    - SUPPORTED SERVICES to use: ec2, iam, lambda, logs, cloudwatch, cloudtrail,
+      wafv2, shield, sts, s3, kms, secretsmanager, ssm
     - If the call still fails after retries, FALL BACK TO THE CLOUDFORMATION FILE to determine
       whether the mitigation is in place. The CloudFormation file represents the deployed
       infrastructure — if a resource property is configured there (e.g. encryption enabled,

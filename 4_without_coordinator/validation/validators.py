@@ -39,7 +39,7 @@ def _load_threats() -> tuple[dict | None, str | None]:
         return None, f"threats.json is not valid JSON: {e}"
 
 
-def validate_after_threat_identifier() -> str | None:
+def validate_after_threat_identifier(expected_threat_count: int = 0) -> str | None:
     """Validate threats.json after the Threat Identifier agent has run."""
     data, err = _load_threats()
     if err:

@@ -1,7 +1,7 @@
-from .common import filesystem_params, aws_mcp_params, WORKER_MODEL
+from constants import FILESYSTEM_MCP_PARAMS, AWS_MCP_PARAMS, MODEL
 
 __all__: list[str] = [
-    "filesystem_params",
-    "aws_mcp_params",
-    "WORKER_MODEL",
+    "FILESYSTEM_MCP_PARAMS",
+    "AWS_MCP_PARAMS",
+    "MODEL",
 ]

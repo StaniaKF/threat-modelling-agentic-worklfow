@@ -21,7 +21,7 @@ from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 from utils.get_trace import FileSpanExporter
-from worker_agents.common import filesystem_params, WORKER_MODEL
+from constants import FILESYSTEM_MCP_PARAMS, MODEL
 from worker_agents.threat_identifier import INSTRUCTIONS
 
 env_path = os.path.join(os.path.dirname(__file__), "../.env")
@@ -48,7 +48,7 @@ async def main() -> None:
 
     async with AsyncExitStack() as stack:
         filesystem_mcp = await stack.enter_async_context(
-            MCPServerStdio(filesystem_params)
+            MCPServerStdio(FILESYSTEM_MCP_PARAMS)
         )
 
         mermaid_path = os.path.join(PROJECT_ROOT, "inputs", "mermaid.md")
@@ -68,7 +68,7 @@ async def main() -> None:
         agent = Agent(
             name="Threat Identifier Agent",
             instructions=INSTRUCTIONS,
-            model=OpenAIChatCompletionsModel(model=WORKER_MODEL, openai_client=CLIENT),
+            model=OpenAIChatCompletionsModel(model=MODEL, openai_client=CLIENT),
             mcp_servers=[filesystem_mcp],
         )
 
@@ -77,9 +77,7 @@ async def main() -> None:
                 agent,
                 input_message,
                 run_config=RunConfig(
-                    model=OpenAIChatCompletionsModel(
-                        model=WORKER_MODEL, openai_client=CLIENT
-                    ),
+                    model=OpenAIChatCompletionsModel(model=MODEL, openai_client=CLIENT),
                 ),
                 max_turns=50,
             )
