@@ -53,21 +53,33 @@ threat-model  # run from any directory with inputs/ and .env
 ## Directory Layout
 
 ```
-├── main.py                          # CLI + workflow orchestration
+├── main.py                          # CLI entry point (validate, clean, run)
+├── constants.py                     # Model config, MCP server params, retry limits
 ├── worker_agents/
-│   ├── common.py                    # MCP server params, model config
 │   ├── threat_identifier.py         # STRIDE threat identification instructions
 │   ├── risk_assessor.py             # Impact/likelihood assessment instructions
 │   ├── mitigation_planner.py        # Mitigation proposal instructions
 │   └── mitigation_auditor.py        # AWS audit instructions
+├── utils/
+│   ├── workflow_run.py              # Full pipeline orchestration
+│   ├── agent_run.py                 # Agent execution with retry logic
+│   ├── setup_commands.py            # Environment validation, file helpers
+│   └── get_trace.py                 # Local trace file exporter
 ├── validation/
 │   ├── __init__.py
 │   └── validators.py                # Programmatic validators + risk matrix
 ├── tools/
 │   └── convert_to_csv.py            # JSON → pipe-delimited CSV
-├── utils/
-│   └── get_trace.py                 # Local trace file exporter
-├── worker_agent_tests/              # Integration tests for individual agents
+├── tests/
+│   └── unit/                        # Unit tests (157 tests, 100% coverage)
+│       ├── conftest.py
+│       ├── test_setup_commands.py
+│       ├── test_agent_run.py
+│       ├── test_workflow_run.py
+│       ├── test_validators.py
+│       ├── test_get_trace.py
+│       └── test_convert_to_csv.py
+├── worker_agent_tests/              # Integration tests for individual agents (LLM calls)
 │   ├── fixtures/                    # Pre-built JSON states for each stage
 │   ├── test_threat_identifier.py
 │   ├── test_risk_assessor.py
@@ -111,8 +123,9 @@ Tests seed fixtures to `outputs/threats.json` and run the agent in isolation.
 
 ## Available Commands
 
-| Command        | Description                              |
-|----------------|------------------------------------------|
-| `make install` | Install all dependencies (including dev) |
-| `make lint`    | Check for linting and formatting issues  |
-| `make format`  | Auto-fix formatting issues               |
+| Command        | Description                                               |
+|----------------|-----------------------------------------------------------|
+| `make install` | Install all dependencies (including dev)                  |
+| `make test`    | Run unit tests with coverage (enforces 100%)              |
+| `make lint`    | Check for linting and formatting issues                   |
+| `make format`  | Auto-fix formatting issues                                |

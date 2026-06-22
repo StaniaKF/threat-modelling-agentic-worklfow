@@ -3,7 +3,7 @@
 ```mermaid
 flowchart TD
     %% Python orchestrator
-    script["main.py\n(Python orchestrator)"]
+    script["utils/workflow_run.py\n(Python orchestrator)"]
 
     %% Input files
     context["inputs/context.md"]
@@ -88,6 +88,22 @@ flowchart TD
     class threats_json data
     class aws external
     class v1,v2,v3,v4 validator
+```
+
+## Code Structure
+
+```
+main.py                   CLI entry point — validates env, cleans outputs, calls run_workflow()
+utils/
+  workflow_run.py         Pipeline orchestration — creates agents, runs each step, calls CSV export
+  agent_run.py            run_agent_with_validation() — streams agent, validates output, retries
+  setup_commands.py       validate_environment(), clean_outputs(), read_input(), create_initial_threats_json()
+  get_trace.py            FileSpanExporter — writes trace spans to a local JSON file
+constants.py              MODEL, MAX_RETRIES, FILESYSTEM_MCP_PARAMS, AWS_MCP_PARAMS
+validation/validators.py  Four validators — one per pipeline step; risk_assessor also writes risk field
+tools/convert_to_csv.py   Reads threats.json, writes pipe-delimited threats.csv
+tests/unit/               Unit tests — 157 tests, 100% line coverage, no LLM calls
+worker_agent_tests/       Integration tests — run individual agents end-to-end (require API access)
 ```
 
 ## Key Differences from Project 3
