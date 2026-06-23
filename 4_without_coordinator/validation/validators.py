@@ -324,3 +324,110 @@ def validate_after_mitigation_auditor(expected_threat_count: int) -> str | None:
             )
 
     return "\n".join(errors) if errors else None
+
+
+def validate_single_threat_audit(
+    threat_index: int, expected_threat_count: int
+) -> str | None:
+    """Validate that a single threat at the given index was correctly audited.
+
+    Checks that the specific threat has all auditor fields populated.
+    If the mitigation counts don't match, it auto-corrects:
+    - Removes hallucinated items (not in all_possible_mitigations)
+    - Adds missing items to mitigations_missing (safe default)
+    """
+    data, err = _load_threats()
+    if err:
+        return err
+
+    threats = data.get("threats", [])
+
+    if len(threats) != expected_threat_count:
+        return (
+            f"Expected {expected_threat_count} threats, got {len(threats)} "
+            f"(file was truncated or corrupted)"
+        )
+
+    if threat_index >= len(threats):
+        return f"Threat index {threat_index} out of range (only {len(threats)} threats)"
+
+    t = threats[threat_index]
+    element = t.get("element", f"index {threat_index}")
+    errors: list[str] = []
+    valid_remaining_risk = {"Low", "Medium", "High", "Critical"}
+
+    in_place = t.get("mitigations_already_in_place")
+    missing = t.get("mitigations_missing")
+    proposed = t.get("ai_proposed_mitigations")
+    remaining = t.get("remaining_risk")
+    all_mits = t.get("all_possible_mitigations", [])
+
+    # Hard failures — agent didn't process the threat at all
+    if in_place is None:
+        errors.append(
+            "mitigations_already_in_place is null — agent did not process this threat"
+        )
+    elif not isinstance(in_place, list):
+        errors.append("mitigations_already_in_place is not an array")
+
+    if missing is None:
+        errors.append("mitigations_missing is null — agent did not process this threat")
+    elif not isinstance(missing, list):
+        errors.append("mitigations_missing is not an array")
+
+    if proposed is None:
+        errors.append(
+            "ai_proposed_mitigations is null — agent did not process this threat"
+        )
+    elif not isinstance(proposed, list):
+        errors.append("ai_proposed_mitigations is not an array")
+
+    if remaining not in valid_remaining_risk:
+        errors.append(f"remaining_risk '{remaining}' not in {valid_remaining_risk}")
+
+    # If there are hard failures, return them for retry
+    if errors:
+        prefixed = [f"Threat {threat_index} ({element}): {e}" for e in errors]
+        return "\n".join(prefixed)
+
+    # Soft fix: correct the mitigation count mismatch programmatically
+    # The LLM often hallucates extra items or misses some — we fix it in code
+    all_mits_set = set(all_mits)
+
+    # Remove hallucinated items from in_place (items not in all_possible)
+    # We match by checking if the base text (without bracketed notes) is in all_mits
+    def _base_text(item: str) -> str:
+        """Strip trailing bracketed notes for matching, e.g. 'Foo (partial — bar)' -> 'Foo'."""
+        paren_idx = item.rfind(" (")
+        if paren_idx > 0 and item.endswith(")"):
+            return item[:paren_idx].strip()
+        return item.strip()
+
+    def _is_in_all_mits(item: str) -> bool:
+        """Check if an item (possibly with bracketed note) matches an all_possible_mitigations entry."""
+        if item in all_mits_set:
+            return True
+        base = _base_text(item)
+        return base in all_mits_set
+
+    cleaned_in_place = [item for item in in_place if _is_in_all_mits(item)]
+    cleaned_missing = [item for item in missing if _is_in_all_mits(item)]
+
+    # Find items from all_possible that aren't in either list
+    accounted_bases = {_base_text(item) for item in cleaned_in_place + cleaned_missing}
+    unaccounted = [m for m in all_mits if m not in accounted_bases]
+
+    # Add unaccounted items to missing (safe default)
+    cleaned_missing.extend(unaccounted)
+
+    # Write corrections back if anything changed
+    needs_write = cleaned_in_place != in_place or cleaned_missing != missing
+
+    if needs_write:
+        t["mitigations_already_in_place"] = cleaned_in_place
+        t["mitigations_missing"] = cleaned_missing
+        THREATS_JSON.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+
+    return None
