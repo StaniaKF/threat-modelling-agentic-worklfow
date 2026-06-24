@@ -61,24 +61,24 @@ def validate_after_threat_identifier(
         "Elevation of Privilege",
     }
 
-    for i, t in enumerate(threats):
+    for i, threat in enumerate(threats):
         # Check required fields exist and are non-empty strings
-        missing = required_fields - set(t.keys())
+        missing = required_fields - set(threat.keys())
         if missing:
             errors.append(f"Threat {i}: missing fields {missing}")
             continue
 
         for field in required_fields:
-            val = t.get(field)
+            val = threat.get(field)
             if not isinstance(val, str) or val.strip() == "":
                 errors.append(
                     f"Threat {i}: field '{field}' must be a non-empty string, got: {repr(val)}"
                 )
 
         # Validate STRIDE category
-        if t.get("stride_category") not in valid_categories:
+        if threat.get("stride_category") not in valid_categories:
             errors.append(
-                f"Threat {i}: stride_category '{t.get('stride_category')}' "
+                f"Threat {i}: stride_category '{threat.get('stride_category')}' "
                 f"is not a valid STRIDE category"
             )
 
@@ -93,9 +93,10 @@ def validate_after_threat_identifier(
             "ai_proposed_mitigations",
             "remaining_risk",
         }
-        found_unexpected = unexpected & set(t.keys())
+        found_unexpected = unexpected & set(threat.keys())
+
         # Allow null values for fields that may be pre-populated as null
-        actual_unexpected = {f for f in found_unexpected if t.get(f) is not None}
+        actual_unexpected = {f for f in found_unexpected if threat.get(f) is not None}
         if actual_unexpected:
             errors.append(
                 f"Threat {i}: has unexpected non-null fields {actual_unexpected}"
@@ -112,6 +113,7 @@ def validate_after_risk_assessor(
     Checks that impact and likelihood are valid, then applies the risk matrix
     deterministically in code (the agent no longer calculates risk itself).
     """
+    _path = threats_json_path if threats_json_path is not None else THREATS_JSON
     data, err = _load_threats(threats_json_path)
     if err:
         return err
@@ -139,30 +141,30 @@ def validate_after_risk_assessor(
     errors: list[str] = []
     valid_levels = {"Low", "Medium", "High"}
 
-    for i, t in enumerate(threats):
-        impact = t.get("impact")
-        likelihood = t.get("likelihood")
+    for i, threat in enumerate(threats):
+        impact = threat.get("impact")
+        likelihood = threat.get("likelihood")
 
         # Check that the fields were actually added (not null/missing)
         if impact is None:
             errors.append(
-                f"Threat {i} ({t.get('element')}): impact is null — agent did not assess this threat"
+                f"Threat {i} ({threat.get('element')}): impact is null — agent did not assess this threat"
             )
             continue
         if likelihood is None:
             errors.append(
-                f"Threat {i} ({t.get('element')}): likelihood is null — agent did not assess this threat"
+                f"Threat {i} ({threat.get('element')}): likelihood is null — agent did not assess this threat"
             )
             continue
 
         if impact not in valid_levels:
             errors.append(
-                f"Threat {i} ({t.get('element')}): impact '{impact}' not in {valid_levels}"
+                f"Threat {i} ({threat.get('element')}): impact '{impact}' not in {valid_levels}"
             )
             continue
         if likelihood not in valid_levels:
             errors.append(
-                f"Threat {i} ({t.get('element')}): likelihood '{likelihood}' not in {valid_levels}"
+                f"Threat {i} ({threat.get('element')}): likelihood '{likelihood}' not in {valid_levels}"
             )
             continue
 
@@ -170,13 +172,11 @@ def validate_after_risk_assessor(
         return "\n".join(errors)
 
     # Validation passed — now apply the risk matrix deterministically
-    for t in threats:
-        t["risk"] = RISK_MATRIX[(t["impact"], t["likelihood"])]
+    for threat in threats:
+        threat["risk"] = RISK_MATRIX[(threat["impact"], threat["likelihood"])]
 
     # Write back with the computed risk values
-    (threats_json_path if threats_json_path is not None else THREATS_JSON).write_text(
-        json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    _path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
     return None
 
@@ -208,28 +208,28 @@ def validate_after_mitigation_planner(
         return "threats array is empty — mitigation planning requires threats to be identified first"
 
     errors: list[str] = []
-    for i, t in enumerate(threats):
-        mitigations = t.get("all_possible_mitigations")
+    for i, threat in enumerate(threats):
+        mitigations = threat.get("all_possible_mitigations")
         if mitigations is None:
             errors.append(
-                f"Threat {i} ({t.get('element')}): all_possible_mitigations is null — "
+                f"Threat {i} ({threat.get('element')}): all_possible_mitigations is null — "
                 f"agent did not process this threat"
             )
             continue
         if not isinstance(mitigations, list):
             errors.append(
-                f"Threat {i} ({t.get('element')}): all_possible_mitigations is not an array "
+                f"Threat {i} ({threat.get('element')}): all_possible_mitigations is not an array "
                 f"(got {type(mitigations).__name__})"
             )
             continue
         if len(mitigations) == 0:
             errors.append(
-                f"Threat {i} ({t.get('element')}): all_possible_mitigations is empty"
+                f"Threat {i} ({threat.get('element')}): all_possible_mitigations is empty"
             )
             continue
         if len(mitigations) > 10:
             errors.append(
-                f"Threat {i} ({t.get('element')}): all_possible_mitigations has {len(mitigations)} items "
+                f"Threat {i} ({threat.get('element')}): all_possible_mitigations has {len(mitigations)} items "
                 f"(max 10 allowed — reduce to the most impactful controls)"
             )
             continue
@@ -237,7 +237,7 @@ def validate_after_mitigation_planner(
         for j, m in enumerate(mitigations):
             if not isinstance(m, str) or m.strip() == "":
                 errors.append(
-                    f"Threat {i} ({t.get('element')}): all_possible_mitigations[{j}] "
+                    f"Threat {i} ({threat.get('element')}): all_possible_mitigations[{j}] "
                     f"is not a non-empty string"
                 )
 
@@ -272,13 +272,13 @@ def validate_after_mitigation_auditor(
     errors: list[str] = []
     valid_remaining_risk = {"Low", "Medium", "High", "Critical"}
 
-    for i, t in enumerate(threats):
-        element = t.get("element", f"index {i}")
-        in_place = t.get("mitigations_already_in_place")
-        missing = t.get("mitigations_missing")
-        proposed = t.get("ai_proposed_mitigations")
-        remaining = t.get("remaining_risk")
-        all_mits = t.get("all_possible_mitigations", [])
+    for i, threat in enumerate(threats):
+        element = threat.get("element", f"index {i}")
+        in_place = threat.get("mitigations_already_in_place")
+        missing = threat.get("mitigations_missing")
+        proposed = threat.get("ai_proposed_mitigations")
+        remaining = threat.get("remaining_risk")
+        all_mits = threat.get("all_possible_mitigations", [])
 
         # Check that fields were actually added (not null)
         if in_place is None:

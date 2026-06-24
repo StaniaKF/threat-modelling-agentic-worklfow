@@ -1,7 +1,7 @@
 import json
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, List, Dict, Optional
+from typing import Any
 import typer
 from agents import Agent, OpenAIChatCompletionsModel, RunConfig, Runner, trace
 from openai import AsyncOpenAI
@@ -47,10 +47,11 @@ async def _execute_threat_audit_attempt(
     agent: Agent,
     run_config: RunConfig,
     audit_input: str,
-    all_mitigations: List[str],
+    all_mitigations: list[str],
     index: int,
-) -> Optional[ThreatAuditResult]:
-    validation_error: Optional[str] = None
+) -> ThreatAuditResult | None:
+    validation_error: str | None = None
+    last_result = None
 
     for attempt in range(3):
         message = (
@@ -65,7 +66,7 @@ async def _execute_threat_audit_attempt(
 
         try:
             with trace(f"Mitigation Audit - Threat {index}"):
-                result = await Runner.run(
+                last_result = await Runner.run(
                     agent, message, run_config=run_config, max_turns=35
                 )
         except Exception as e:
@@ -73,12 +74,16 @@ async def _execute_threat_audit_attempt(
             validation_error = str(e)
             continue
 
-        if result.final_output_as(ThreatAuditResult):
-            audit_result = result.final_output_as(ThreatAuditResult)
+        audit_result = last_result.final_output_as(ThreatAuditResult)
+        if audit_result:
             assessed_names = {
                 a.mitigation_name for a in audit_result.mitigations_assessment
             }
-            missing = [m for m in all_mitigations if m not in assessed_names]
+            missing = [
+                mitigation
+                for mitigation in all_mitigations
+                if mitigation not in assessed_names
+            ]
 
             if not missing and audit_result.remaining_risk in {
                 "Low",
@@ -95,11 +100,11 @@ async def _execute_threat_audit_attempt(
             typer.echo("    ✗ No structured output returned")
 
     typer.echo("    ⚠️  Using partial result after retries")
-    return result.final_output_as(ThreatAuditResult) if "result" in locals() else None
+    return last_result.final_output_as(ThreatAuditResult) if last_result else None
 
 
 def _update_threat_record(
-    threat: Dict[str, Any], audit_result: ThreatAuditResult, all_mitigations: List[str]
+    threat: dict[str, Any], audit_result: ThreatAuditResult, all_mitigations: list[str]
 ) -> None:
     in_place = []
     missing = []
@@ -116,9 +121,9 @@ def _update_threat_record(
             missing.append(name_with_note)
 
     assessed_bases = {a.mitigation_name for a in audit_result.mitigations_assessment}
-    for m in all_mitigations:
-        if m not in assessed_bases:
-            missing.append(m)
+    for mitigation in all_mitigations:
+        if mitigation not in assessed_bases:
+            missing.append(mitigation)
 
     threat["mitigations_already_in_place"] = in_place
     threat["mitigations_missing"] = missing
