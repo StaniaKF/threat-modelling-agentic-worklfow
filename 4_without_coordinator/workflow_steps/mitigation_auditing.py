@@ -1,17 +1,46 @@
 import json
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, List, Dict, Optional
 import typer
 from agents import Agent, OpenAIChatCompletionsModel, RunConfig, Runner, trace
 from openai import AsyncOpenAI
+from pydantic import BaseModel
 from utils.agent_factory import create_agent
 from utils.setup_commands import THREATS_JSON_PATH
-from workflow_agents.mitigation_auditor import (
+from workflow_agent_prompts.mitigation_auditor import (
     INSTRUCTIONS as MITIGATION_AUDITOR_INSTRUCTIONS,
 )
-from workflow_agents.mitigation_auditor import ThreatAuditResult
 
 AUDITOR_MODEL = "openai/gpt-4.1-mini"
+
+
+class Status(StrEnum):
+    already_in_place = "already_in_place"
+    missing = "missing"
+
+
+class RemainingRisk(StrEnum):
+    Critical = "Critical"
+    High = "High"
+    Medium = "Medium"
+    Low = "Low"
+
+
+class MitigationAssessment(BaseModel):
+    """Assessment of a single mitigation item."""
+
+    mitigation_name: str
+    status: Status
+    note: str = ""
+
+
+class ThreatAuditResult(BaseModel):
+    """Structured output from the auditor for a single threat."""
+
+    mitigations_assessment: list[MitigationAssessment]
+    ai_proposed_mitigations: list[str]
+    remaining_risk: RemainingRisk
 
 
 async def _execute_threat_audit_attempt(

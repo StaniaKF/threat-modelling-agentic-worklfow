@@ -7,7 +7,7 @@ from utils.agent_factory import create_agent
 from utils.agent_run import run_agent_with_validation
 from utils.setup_commands import TODAY, THREATS_JSON_PATH
 from validation import validate_after_threat_identifier
-from workflow_agents.threat_identifier import (
+from workflow_agent_prompts.threat_identifier import (
     INSTRUCTIONS as THREAT_IDENTIFIER_INSTRUCTIONS,
 )
 

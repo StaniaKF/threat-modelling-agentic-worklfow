@@ -7,7 +7,9 @@ from utils.agent_factory import create_agent
 from utils.agent_run import run_agent_with_validation
 from utils.setup_commands import THREATS_JSON_PATH
 from validation import validate_after_risk_assessor
-from workflow_agents.risk_assessor import INSTRUCTIONS as RISK_ASSESSOR_INSTRUCTIONS
+from workflow_agent_prompts.risk_assessor import (
+    INSTRUCTIONS as RISK_ASSESSOR_INSTRUCTIONS,
+)
 
 
 async def assess_risks(

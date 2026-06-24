@@ -7,7 +7,7 @@ from utils.agent_factory import create_agent
 from utils.agent_run import run_agent_with_validation
 from utils.setup_commands import THREATS_JSON_PATH
 from validation import validate_after_mitigation_planner
-from workflow_agents.mitigation_planner import (
+from workflow_agent_prompts.mitigation_planner import (
     INSTRUCTIONS as MITIGATION_PLANNER_INSTRUCTIONS,
 )
 
