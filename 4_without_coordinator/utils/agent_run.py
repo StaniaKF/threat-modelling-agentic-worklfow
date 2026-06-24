@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import typer
 from agents import Agent, RunConfig, Runner
@@ -7,12 +8,13 @@ from constants import MAX_RETRIES
 from utils.setup_commands import THREATS_JSON_PATH
 
 
-def _get_current_threat_count() -> int:
-    """Fetch the current number of threats from outputs/threats.json."""
-    if not THREATS_JSON_PATH.exists():
+def _get_current_threat_count(threats_json_path: Path | None = None) -> int:
+    """Fetch the current number of threats from threats.json."""
+    path = threats_json_path if threats_json_path is not None else THREATS_JSON_PATH
+    if not path.exists():
         return 0
     try:
-        threat_data = json.loads(THREATS_JSON_PATH.read_text(encoding="utf-8"))
+        threat_data = json.loads(path.read_text(encoding="utf-8"))
         return len(threat_data.get("threats", []))
     except json.JSONDecodeError, KeyError, TypeError:
         return 0
@@ -40,13 +42,15 @@ async def run_agent_with_validation(
     validator,
     run_config: RunConfig,
     agent_name: str,
+    threats_json_path: Path | None = None,
 ) -> None:
     """Run an agent (streamed) with validation and retry logic.
 
     Streams the agent's output to stdout in real-time, then validates
     the resulting threats.json. Retries on validation failure.
     """
-    threat_count = _get_current_threat_count()
+    path = threats_json_path if threats_json_path is not None else THREATS_JSON_PATH
+    threat_count = _get_current_threat_count(path)
 
     validation_error: str | None = None
 
@@ -66,7 +70,7 @@ async def run_agent_with_validation(
         print()  # Newline after stream ends
 
         # Validate after the agent has fully completed
-        validation_error = validator(threat_count)
+        validation_error = validator(threat_count, path)
 
         # When no validation errors are found, exit early
         if validation_error is None:

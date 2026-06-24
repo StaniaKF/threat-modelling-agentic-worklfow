@@ -20,8 +20,9 @@ import asyncio
 from contextlib import AsyncExitStack
 
 import typer
-from agents import OpenAIChatCompletionsModel, RunConfig, add_trace_processor
+from agents import OpenAIChatCompletionsModel, RunConfig
 from agents.mcp import MCPServerStdio
+from agents.tracing import set_trace_processors
 
 from constants import AWS_MCP_PARAMS, FILESYSTEM_MCP_PARAMS, MODEL
 from tools import convert_to_csv_from_file
@@ -47,13 +48,15 @@ app = typer.Typer(
 )
 
 
+TRACES_DIR = OUTPUTS_DIR / "traces"
+
+
 async def run_workflow() -> None:
     """Execute the full threat modelling workflow pipeline."""
     client = create_client()
     run_config = RunConfig(
         model=OpenAIChatCompletionsModel(model=MODEL, openai_client=client)
     )
-    add_trace_processor(FileSpanExporter(str(OUTPUTS_DIR / "trace_output.json")))
 
     # Read System Specs
     context = read_input("context.md")
@@ -62,6 +65,7 @@ async def run_workflow() -> None:
 
     service_project = extract_service_name(context)
     create_initial_threats_json(service_project)
+    TRACES_DIR.mkdir(exist_ok=True)
 
     async with AsyncExitStack() as stack:
         # Initialize Core Runtime Protocol
@@ -79,10 +83,25 @@ async def run_workflow() -> None:
         typer.echo(f"   ✓ AWS MCP ready ({len(aws_tools)} tools)")
 
         # Sequential Workflow Stages Execution
+        set_trace_processors(
+            [FileSpanExporter(str(TRACES_DIR / "trace_threat_identifier.json"))]
+        )
         await identify_threats(client, run_config, filesystem_mcp, diagram, context)
+
+        set_trace_processors(
+            [FileSpanExporter(str(TRACES_DIR / "trace_risk_assessor.json"))]
+        )
         await assess_risks(client, run_config, filesystem_mcp, context, cloudformation)
+
+        set_trace_processors(
+            [FileSpanExporter(str(TRACES_DIR / "trace_mitigation_planner.json"))]
+        )
         await plan_mitigations(client, run_config, filesystem_mcp)
-        await run_mitigation_audit(client, run_config, cloudformation, aws_mcp)
+
+        set_trace_processors(
+            [FileSpanExporter(str(TRACES_DIR / "trace_mitigation_auditor.json"))]
+        )
+        await run_mitigation_audit(client, cloudformation, aws_mcp)
 
         # Output Consolidation Phase
         typer.echo("\n📊 Converting to CSV...")

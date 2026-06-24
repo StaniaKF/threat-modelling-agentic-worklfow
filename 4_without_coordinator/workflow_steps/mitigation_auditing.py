@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Any, List, Dict, Optional
 import typer
 from agents import Agent, OpenAIChatCompletionsModel, RunConfig, Runner, trace
@@ -97,7 +98,10 @@ def _update_threat_record(
 
 
 async def run_mitigation_audit(
-    client: AsyncOpenAI, run_config: RunConfig, cloudformation: str, aws_mcp: Any
+    client: AsyncOpenAI,
+    cloudformation: str,
+    aws_mcp: Any,
+    threats_json_path: Path = THREATS_JSON_PATH,
 ) -> None:
     """Step 4: Query live AWS configurations dynamically to audit applied mitigations."""
     typer.echo("\n🔍 Step 4/4: Mitigation Audit")
@@ -106,7 +110,7 @@ async def run_mitigation_audit(
         model=OpenAIChatCompletionsModel(model=AUDITOR_MODEL, openai_client=client)
     )
 
-    threats_data = json.loads(THREATS_JSON_PATH.read_text(encoding="utf-8"))
+    threats_data = json.loads(threats_json_path.read_text(encoding="utf-8"))
     threats = threats_data.get("threats", [])
     total_threats = len(threats)
 
@@ -147,7 +151,7 @@ async def run_mitigation_audit(
         if audit_result:
             _update_threat_record(threat, audit_result, all_mitigations)
             threats_data["threats"] = threats
-            THREATS_JSON_PATH.write_text(
+            threats_json_path.write_text(
                 json.dumps(threats_data, indent=2, ensure_ascii=False), encoding="utf-8"
             )
             typer.echo(

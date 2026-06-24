@@ -1,10 +1,11 @@
+from pathlib import Path
 from typing import Any
 import typer
 from agents import RunConfig, trace
 from openai import AsyncOpenAI
 from utils.agent_factory import create_agent
 from utils.agent_run import run_agent_with_validation
-from utils.setup_commands import TODAY
+from utils.setup_commands import TODAY, THREATS_JSON_PATH
 from validation import validate_after_threat_identifier
 from workflow_agents.threat_identifier import (
     INSTRUCTIONS as THREAT_IDENTIFIER_INSTRUCTIONS,
@@ -17,6 +18,7 @@ async def identify_threats(
     mcp_server: Any,
     diagram: str,
     context: str,
+    threats_json_path: Path = THREATS_JSON_PATH,
 ) -> None:
     """Step 1: Parse documentation and generate initial threat boundaries."""
     typer.echo("\n📋 Step 1/4: Threat Identification")
@@ -32,4 +34,5 @@ async def identify_threats(
             validate_after_threat_identifier,
             run_config,
             "Threat Identifier",
+            threats_json_path=threats_json_path,
         )
