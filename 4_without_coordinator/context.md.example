@@ -1,0 +1,44 @@
+# Business Context
+
+## Project / Service Name
+My projects
+
+## What does this system do?
+Brief description of the system's purpose and what data it processes.
+
+## Critical Components
+List the components that are most important to protect and why. Include physical id in brackets.
+
+- **API Gateway (physical-id-1)**: Public-facing entry point. Handles all customer API requests.
+- **Dispatches Lambda (physical-id-2)**: Core business logic. Processes tariff calculations with sensitive pricing data.
+- **Valkey Cache (physical-id-3)**: Stores results. Contains customer-specific calculation outputs.
+
+## Sensitive Data
+What sensitive data flows through the system?
+
+- Customer account identifiers
+- Tariff calculation inputs/outputs (commercially sensitive)
+- API authentication tokens
+
+## Compliance / Regulatory Requirements
+Any standards or regulations that apply (e.g. GDPR, PCI-DSS, SOC2).
+
+- GDPR (customer data)
+
+## AWS Account Info
+- Account: 869935085421
+- Region: eu-west-1
+- Physical IDs are in brackets in the diagram, e.g. ApiGateway(("API Gateway: Smarter Tariff\n(lvzpzw2ls1)"))
+
+## Trust Assumptions
+What do we trust? What don't we trust?
+
+- We trust: Internal VPC traffic between Lambda and Valkey
+- We don't trust: Any traffic arriving at the API Gateway from the internet
+- We don't trust: Developer access without MFA
+
+## Known Gaps / Areas of Concern
+Anything you already know is weak or needs attention.
+
+- No WAF currently in front of API Gateway
+- Jumpbox access controls need review

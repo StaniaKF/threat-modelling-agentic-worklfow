@@ -2,15 +2,15 @@ import json
 
 import pytest
 
-from tools.convert_to_csv import convert_to_csv_from_file
+from utils.from_json_to_csv_converter import convert_to_csv_from_file
 
 
 @pytest.fixture
 def patched_csv_paths(monkeypatch, tmp_path):
     json_path = str(tmp_path / "threats.json")
     csv_path = str(tmp_path / "threats.csv")
-    monkeypatch.setattr("tools.convert_to_csv.THREATS_JSON_PATH", json_path)
-    monkeypatch.setattr("tools.convert_to_csv.THREATS_CSV_PATH", csv_path)
+    monkeypatch.setattr("utils.from_json_to_csv_converter.THREATS_JSON_PATH", json_path)
+    monkeypatch.setattr("utils.from_json_to_csv_converter.THREATS_CSV_PATH", csv_path)
     return json_path, csv_path
 
 

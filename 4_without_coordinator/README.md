@@ -17,18 +17,42 @@ The workflow is linear and fixed. A Python script calling each agent sequentiall
 
 ## Setup
 
+### 1. Install dependencies
+
 ```bash
-cp .env.example .env
-# Edit .env with your values
-
-mkdir inputs
-cp context.md.example inputs/context.md
-# Edit inputs/context.md
-# Add inputs/mermaid.md (architecture diagram, required)
-# Add inputs/cloud-formation.yaml (AWS resources, optional)
-
 make install
 ```
+
+### 2. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in the following:
+
+**`LITELLM_API_BASE_URL` and `LITELLM_API_KEY`** — the LiteLLM proxy endpoint and key.
+See the internal setup guide: [Creating a LiteLLM API key](https://notion.so/kraken-tech/Creating-a-LiteLLM-API-key-32873c742c71800cbca2f43dacc00f34)
+
+**`OPENAI_API_KEY`** — two options:
+- Set to any non-empty string (e.g. `unused`) when routing all calls through LiteLLM. Traces are saved locally to `outputs/traces/` only.
+- Set to a real OpenAI API key if you want traces sent to the [OpenAI trace dashboard](https://platform.openai.com/traces) in addition to the local file.
+
+**`AWS_PROFILE`** — the AWS SSO profile used by the Mitigation Auditor to query live infrastructure.
+
+**`NPX_PATH` / `UVX_PATH`** — optional. Only needed if `npx` or `uvx` are not on your `PATH`.
+
+### 3. Add your input files
+
+```bash
+mkdir inputs
+```
+
+Create the following files inside `inputs/`:
+
+- **`context.md`** — describe your service and its business context (architecture overview, data sensitivity, deployment environment), follow the structure of context.md.example (required)
+- **`mermaid.md`** — architecture diagram in Mermaid syntax (required)
+- **`cloud-formation.yaml`** — AWS resource definitions (optional but recommended for the audit step), it does not need to be a complete template, just the resources you want to check. It will ignore incomplete Imports or variables.
 
 ## Running
 
@@ -53,22 +77,42 @@ threat-model  # run from any directory with inputs/ and .env
 ## Directory Layout
 
 ```
-├── main.py                          # CLI + workflow orchestration
-├── worker_agents/
-│   ├── common.py                    # MCP server params, model config
+├── main.py                          # CLI entry point (validate, clean, run)
+├── constants.py                     # Model config, MCP server params, retry limits
+├── workflow_agent_prompts/
 │   ├── threat_identifier.py         # STRIDE threat identification instructions
 │   ├── risk_assessor.py             # Impact/likelihood assessment instructions
 │   ├── mitigation_planner.py        # Mitigation proposal instructions
 │   └── mitigation_auditor.py        # AWS audit instructions
-├── validation/
-│   ├── __init__.py
-│   └── validators.py                # Programmatic validators + risk matrix
-├── tools/
-│   └── convert_to_csv.py            # JSON → pipe-delimited CSV
+├── workflow_steps/
+│   ├── threat_identification.py     # Step 1 — runs threat identifier + validation
+│   ├── risk_assessment.py           # Step 2 — runs risk assessor + validation
+│   ├── mitigation_planning.py       # Step 3 — runs mitigation planner + validation
+│   └── mitigation_auditing.py       # Step 4 — runs mitigation auditor per threat + validation
 ├── utils/
-│   └── get_trace.py                 # Local trace file exporter
-├── worker_agent_tests/              # Integration tests for individual agents
-│   ├── fixtures/                    # Pre-built JSON states for each stage
+│   ├── agent_run.py                 # Agent execution with retry + validation loop
+│   ├── agent_factory.py             # Agent and client construction helpers
+│   ├── setup_commands.py            # Environment validation, file helpers
+│   ├── get_trace.py                 # Local trace file exporter
+│   ├── parsers.py                   # Output parsing helpers
+│   └── from_json_to_csv_converter.py  # JSON → pipe-delimited CSV
+├── validation/
+│   └── validators.py                # Programmatic validators + risk matrix
+├── tests/
+│   └── unit/                        # Unit tests (100% coverage), written by Claude 
+│       ├── conftest.py
+│       ├── test_main.py
+│       ├── test_setup_commands.py
+│       ├── test_agent_run.py
+│       ├── test_validators.py
+│       ├── test_get_trace.py
+│       └── test_convert_to_csv.py
+├── workflow_agent_tests/            # Integration tests for individual agents (LLM calls)
+│   ├── fixtures/                    # Pre-built JSON states for each pipeline stage
+│   ├── inputs/                      # Symlink to inputs/ (gitignored)
+│   ├── outputs/                     # threats.json written by agent under test (gitignored)
+│   ├── traces/                      # Per-test trace files (gitignored)
+│   ├── _common.py                   # Shared setup: seeding, tracing, MCP params
 │   ├── test_threat_identifier.py
 │   ├── test_risk_assessor.py
 │   ├── test_mitigation_planner.py
@@ -77,11 +121,14 @@ threat-model  # run from any directory with inputs/ and .env
 │   ├── context.md
 │   ├── mermaid.md
 │   └── cloud-formation.yaml
-├── outputs/                         # Generated (gitignored, cleaned each run)
+├── outputs/                         # Generated by main workflow (gitignored, cleaned each run)
 │   ├── threats.json
 │   ├── threats.csv
-│   ├── analysis.md
-│   └── trace_output.json
+│   └── traces/                      # Per-agent trace files
+│       ├── trace_threat_identifier.json
+│       ├── trace_risk_assessor.json
+│       ├── trace_mitigation_planner.json
+│       └── trace_mitigation_auditor.json
 └── .env                             # API keys (gitignored)
 ```
 
@@ -101,18 +148,19 @@ On failure, the agent is re-invoked with the specific errors (up to 2 retries).
 ## Testing Individual Agents
 
 ```bash
-uv run python -m worker_agent_tests.test_threat_identifier
-uv run python -m worker_agent_tests.test_risk_assessor
-uv run python -m worker_agent_tests.test_mitigation_planner
-uv run python -m worker_agent_tests.test_mitigation_auditor
+uv run python -m workflow_agent_tests.test_threat_identifier
+uv run python -m workflow_agent_tests.test_risk_assessor
+uv run python -m workflow_agent_tests.test_mitigation_planner
+uv run python -m workflow_agent_tests.test_mitigation_auditor
 ```
 
-Tests seed fixtures to `outputs/threats.json` and run the agent in isolation.
+Each test seeds a fixture from `workflow_agent_tests/fixtures/` into `workflow_agent_tests/outputs/threats.json`, runs the agent in isolation, and writes a trace to `workflow_agent_tests/traces/`.
 
 ## Available Commands
 
-| Command        | Description                              |
-|----------------|------------------------------------------|
-| `make install` | Install all dependencies (including dev) |
-| `make lint`    | Check for linting and formatting issues  |
-| `make format`  | Auto-fix formatting issues               |
+| Command        | Description                                               |
+|----------------|-----------------------------------------------------------|
+| `make install` | Install all dependencies (including dev)                  |
+| `make test`    | Run unit tests with coverage (enforces 100%)              |
+| `make lint`    | Check for linting and formatting issues                   |
+| `make format`  | Auto-fix formatting issues                                |
