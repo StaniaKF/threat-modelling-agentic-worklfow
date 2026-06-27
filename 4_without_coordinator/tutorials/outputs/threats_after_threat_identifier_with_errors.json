@@ -1,0 +1,80 @@
+{
+  "metadata": {
+    "date_of_analysis": "2026-06-27",
+    "service_project": "Serverless Ingestion Service"
+  },
+  "threats": [
+    {
+      "stride_category": "Spoofing",
+      "element": "API Gateway (APIGW)",
+      "threat": "An external attacker can spoof legitimate API requests to the API Gateway, which leads to unauthorized access to sensitive functionality, resulting in reduced availability of services for legitimate users.",
+      "attack_method": "An attacker generates and sends requests that appear to be from legitimate users, exploiting the public nature of the API Gateway to bypass security controls."
+    },
+    {
+      "stride_category": "Tampering",
+      "element": "API Gateway (APIGW)",
+      "threat": "An external attacker can tamper with the API request payload submitted to the API Gateway, which leads to unauthorized data modification in the Lambda Function, resulting in compromised integrity of user data.",
+      "attack_method": "An attacker modifies the request payload during transmission to change the data sent to the Lambda function, affecting the outcome of processing."
+    },
+    {
+      "stride_category": "Information Disclosure",
+      "element": "API Gateway (APIGW)",
+      "threat": "An external attacker can exploit a misconfiguration in the API Gateway to gain information from error messages or logs, which leads to the exposure of sensitive system details, resulting in increased risk of targeted attacks.",
+      "attack_method": "By deliberately crafting requests that trigger errors, an attacker can extract information about the API configuration and structure from response errors."
+    },
+    {
+      "stride_category": "Denial of Service",
+      "element": "API Gateway (APIGW)",
+      "threat": "An external attacker can flood the API Gateway with large quantities of requests, which leads to service outage or degradation, resulting in reduced availability for legitimate users.",
+      "attack_method": "The attacker uses tools to send a high volume of requests to the API Gateway, overwhelming its processing capacity and exhausting service resources."
+    },
+    {
+      "stride_category": "Spoofing",
+      "element": "Lambda Function (Lambda)",
+      "threat": "A malicious insider can impersonate a legitimate user invoking the Lambda Function, which leads to unauthorized execution of sensitive operations, resulting in reduced confidentiality of user submission data.",
+      "attack_method": "An insider uses their valid access credentials to invoke AWS Lambda functions beyond their legitimate purpose, compromising data confidentiality."
+    },
+    {
+      "stride_category": "Tampering",
+      "element": "Lambda Function (Lambda)",
+      "threat": "An external attacker can modify the Lambda execution payload via the API Gateway, which leads to unexpected behaviors in data processing, resulting in corrupted records in DynamoDB.",
+      "attack_method": "The attacker intercepts and alters the payload sent to the Lambda function, causing it to process incorrect data."
+    },
+    {
+      "stride_category": "Goofing",
+      "element": "Lambda Function (Lambda)",
+      "threat": "A user can deny making a request processed by the Lambda Function if operations aren't logged accurately, which leads to challenges in attributing actions, resulting in reduced trust in operational audits.",
+      "attack_method": "Insufficient logging in the Lambda function allows users to deny their actions, hindering accountability and traceability."
+    },
+    {
+      "stride_category": "Information Disclosure",
+      "element": "Lambda Function (Lambda)",
+      "threat": "A bug in the logging mechanism can inadvertently expose user data through CloudWatch Logs, which leads to unintentional leakage of sensitive information, resulting in non-compliance with GDPR obligations."
+    },
+    {
+      "stride_category": "Tampering",
+      "element": "DynamoDB Table (Dynamo)",
+      "threat": "An unauthorized user can exploit vulnerabilities in the system to tamper with records in DynamoDB, which leads to unauthorized changes in user state or application data, resulting in compromised integrity.",
+      "attack_method": "Using stolen credentials or session hijacking, an attacker gains unauthorized access to modify or delete records in the database."
+    },
+    {
+      "stride_category": "Information Disclosure",
+      "element": "DynamoDB Table (Dynamo)",
+      "threat": "An external attacker can gain access to sensitive records in DynamoDB through a compromised API Gateway, which leads to exposure of sensitive user information, resulting in GDPR non-compliance.",
+      "attack_method": "A vulnerability in the API allows an attacker to perform unauthorized read operations, accessing confidential data intended for authorized users only."
+    },
+    {
+      "stride_category": "Denial of Service",
+      "element": "DynamoDB Table (Dynamo)",
+      "threat": "An attacker can consume excessive read/write capacity in DynamoDB through repeated valid input, which leads to throttling of legitimate operations, resulting in reduced access to critical data.",
+      "attack_method": "The attacker sends a flood of legitimate requests that exploit the table's capacity limits, leading to significant slowdowns or outages for valid users."
+    },
+    {
+      "stride_category": "Elevation of Privilege",
+      "element": "DynamoDB Table (Dynamo)",
+      "threat": "An internal user could exploit weak IAM roles to gain unauthorized access to DynamoDB, which leads to unauthorized data extraction, resulting in weakened data protection.",
+      "attack_method": "An insider takes advantage of poorly defined policies to access and export sensitive data from the database they should not have access to.",
+      "likelihood": "High"
+    }
+  ]
+}
