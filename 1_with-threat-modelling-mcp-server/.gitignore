@@ -1,0 +1,37 @@
+# input and output files
+/mermaid.md
+/threats.csv
+/cloud-formation.yaml
+/context.md
+
+# Workflow agent test runtime artifacts
+workflow_agent_tests/inputs
+workflow_agent_tests/outputs/
+workflow_agent_tests/traces/
+
+# Mac
+.DS_Store
+
+# Pycharm
+/.idea/
+*/.idea/
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+.venv
+
+# Environment files
+.env
