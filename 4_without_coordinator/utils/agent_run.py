@@ -16,7 +16,7 @@ def _get_current_threat_count(threats_json_path: Path | None = None) -> int:
     try:
         threat_data = json.loads(path.read_text(encoding="utf-8"))
         return len(threat_data.get("threats", []))
-    except (json.JSONDecodeError, KeyError, TypeError):
+    except json.JSONDecodeError, KeyError, TypeError:
         return 0
 
 

@@ -1,11 +1,15 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import typer
 
 from constants import MODEL
 from main import run_workflow
+from validation.first_step_threats_json_validation import WorkflowSteps
 from utils.agent_factory import create_agent, create_client
 from utils.parsers import extract_service_name
+
+ALL_STEPS = ["identify", "assess", "plan", "audit"]
 
 
 # --- extract_service_name ---
@@ -139,6 +143,7 @@ def workflow_mocks(monkeypatch):
             "cloud-formation.yaml": "",
         }.get(name, ""),
     )
+    monkeypatch.setattr("main._validate_threats_json_for_first_step", MagicMock())
 
     create_initial_mock = MagicMock()
     monkeypatch.setattr("main.create_initial_threats_json", create_initial_mock)
@@ -176,7 +181,7 @@ def workflow_mocks(monkeypatch):
 
 
 async def test_run_workflow_calls_all_four_steps(workflow_mocks):
-    await run_workflow()
+    await run_workflow(ALL_STEPS)
     workflow_mocks["identify"].assert_called_once()
     workflow_mocks["assess"].assert_called_once()
     workflow_mocks["plan"].assert_called_once()
@@ -184,12 +189,43 @@ async def test_run_workflow_calls_all_four_steps(workflow_mocks):
 
 
 async def test_run_workflow_extracts_and_passes_service_name(workflow_mocks):
-    await run_workflow()
+    await run_workflow(ALL_STEPS)
     workflow_mocks["create_initial"].assert_called_once_with("Test Service")
 
 
 async def test_run_workflow_converts_to_csv_at_end(monkeypatch, workflow_mocks):
     csv_mock = MagicMock(return_value="done")
     monkeypatch.setattr("main.convert_to_csv_from_file", csv_mock)
-    await run_workflow()
+    await run_workflow(ALL_STEPS)
     csv_mock.assert_called_once()
+
+
+async def test_run_workflow_only_identify_skips_later_steps(workflow_mocks):
+    await run_workflow(["identify"])
+    workflow_mocks["identify"].assert_called_once()
+    workflow_mocks["assess"].assert_not_called()
+    workflow_mocks["plan"].assert_not_called()
+    workflow_mocks["audit"].assert_not_called()
+
+
+async def test_run_workflow_only_assess_and_plan(workflow_mocks):
+    await run_workflow(["assess", "plan"])
+    workflow_mocks["identify"].assert_not_called()
+    workflow_mocks["assess"].assert_called_once()
+    workflow_mocks["plan"].assert_called_once()
+    workflow_mocks["audit"].assert_not_called()
+
+
+async def test_run_workflow_skips_create_initial_when_identify_not_selected(
+    workflow_mocks,
+):
+    await run_workflow(["assess"])
+    workflow_mocks["create_initial"].assert_not_called()
+
+
+async def test_run_workflow_only_audit(workflow_mocks):
+    await run_workflow(["audit"])
+    workflow_mocks["identify"].assert_not_called()
+    workflow_mocks["assess"].assert_not_called()
+    workflow_mocks["plan"].assert_not_called()
+    workflow_mocks["audit"].assert_called_once()
