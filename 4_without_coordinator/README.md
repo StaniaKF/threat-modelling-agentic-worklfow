@@ -36,7 +36,8 @@ See the internal setup guide: [Creating a LiteLLM API key](https://notion.so/kra
 
 **`OPENAI_API_KEY`** — two options:
 - Set to any non-empty string (e.g. `unused`) when routing all calls through LiteLLM. Traces are saved locally to `outputs/traces/` only.
-- Set to a real OpenAI API key if you want traces sent to the [OpenAI trace dashboard](https://platform.openai.com/traces) in addition to the local file.
+- This is for security reasons because the trace can also be saved to openAI platform containing all the prompts and responses. 
+- If you are testing the workflow on a test scenario, you can set to a real OpenAI API key if you want traces sent to the [OpenAI trace dashboard](https://platform.openai.com/traces) in addition to the local file.
 
 **`AWS_PROFILE`** — the AWS SSO profile used by the Mitigation Auditor to query live infrastructure.
 
@@ -56,15 +57,35 @@ Create the following files inside `inputs/`:
 
 ## Running
 
+Log in to AWS
 ```bash
 aws sso login
-uv run threat-model
 ```
 
-Or directly:
+### Selecting workflow steps
+
+By default (with no `--steps` flag), an interactive menu lets you pick which steps to run. To run the full pipeline non-interactively:
+
 ```bash
-uv run python main.py
+uv run threat-model --steps identify-assess-plan-audit
 ```
+
+You can run a subset of the pipeline by passing any contiguous block of steps:
+
+| `--steps` value              | What runs                          |
+|------------------------------|------------------------------------|
+| `identify`                   | Threat identification only         |
+| `assess`                     | Risk assessment only               |
+| `plan`                       | Mitigation planning only           |
+| `audit`                      | Mitigation auditing only           |
+| `identify-assess`            | Steps 1–2                          |
+| `assess-plan`                | Steps 2–3                          |
+| `plan-audit`                 | Steps 3–4                          |
+| `identify-assess-plan`       | Steps 1–3                          |
+| `assess-plan-audit`          | Steps 2–4                          |
+| `identify-assess-plan-audit` | Full pipeline (all 4 steps)        |
+
+When starting from a step other than `identify`, the CLI validates that `outputs/threats.json` contains the expected fields from earlier steps. If fields are missing (earlier steps haven't run) or unexpected extra fields are present (later steps already ran), it exits with a clear error message.
 
 ### Building and Installing as a Package
 

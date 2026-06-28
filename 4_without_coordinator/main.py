@@ -12,13 +12,17 @@ Requirements:
   LITELLM_API_BASE_URL, LITELLM_API_KEY, AWS_PROFILE
 
 Usage:
-    uv run threat-model
-    uv run python main.py
+    uv run threat-model (interactive prompt)
+    uv run python main.py (interactive prompt)
+    uv run python main.py --steps identify
+    uv run python main.py --steps identify-assess-plan
+    uv run python main.py --steps audit
 """
 
 import asyncio
 from contextlib import AsyncExitStack
 
+import questionary
 import typer
 from agents import OpenAIChatCompletionsModel, RunConfig
 from agents.mcp import MCPServerStdio
@@ -36,6 +40,10 @@ from utils.setup_commands import (
     validate_environment,
     clean_outputs,
 )
+from validation.first_step_threats_json_validation import (
+    WorkflowSteps,
+    validate_threats_json_for_first_step,
+)
 from workflow_steps.threat_identification import identify_threats
 from workflow_steps.risk_assessment import assess_risks
 from workflow_steps.mitigation_planning import plan_mitigations
@@ -47,25 +55,26 @@ app = typer.Typer(
     add_completion=False,
 )
 
-
 TRACES_DIR = OUTPUTS_DIR / "traces"
 
 
-async def run_workflow() -> None:
-    """Execute the full threat modelling workflow pipeline."""
+async def run_workflow(steps: list[str]) -> None:
+    """Execute the selected threat modelling workflow steps."""
     client = create_client()
     run_config = RunConfig(
         model=OpenAIChatCompletionsModel(model=MODEL, openai_client=client)
     )
 
-    # Read System Specs
     context = read_input("context.md")
     diagram = read_input("mermaid.md")
     cloudformation = read_input("cloud-formation.yaml")
 
-    service_project = extract_service_name(context)
-    create_initial_threats_json(service_project)
-    TRACES_DIR.mkdir(exist_ok=True)
+    if WorkflowSteps.IDENTIFY in steps:
+        service_project = extract_service_name(context)
+        create_initial_threats_json(service_project)
+
+    TRACES_DIR.mkdir(parents=True, exist_ok=True)
+    validate_threats_json_for_first_step(steps[0])
 
     async with AsyncExitStack() as stack:
         # Initialize Core Runtime Protocol
@@ -83,25 +92,31 @@ async def run_workflow() -> None:
         typer.echo(f"   ✓ AWS MCP ready ({len(aws_tools)} tools)")
 
         # Sequential Workflow Stages Execution
-        set_trace_processors(
-            [FileSpanExporter(str(TRACES_DIR / "trace_threat_identifier.json"))]
-        )
-        await identify_threats(client, run_config, filesystem_mcp, diagram, context)
+        if WorkflowSteps.IDENTIFY in steps:
+            set_trace_processors(
+                [FileSpanExporter(str(TRACES_DIR / "trace_threat_identifier.json"))]
+            )
+            await identify_threats(client, run_config, filesystem_mcp, diagram, context)
 
-        set_trace_processors(
-            [FileSpanExporter(str(TRACES_DIR / "trace_risk_assessor.json"))]
-        )
-        await assess_risks(client, run_config, filesystem_mcp, context, cloudformation)
+        if WorkflowSteps.ASSESS in steps:
+            set_trace_processors(
+                [FileSpanExporter(str(TRACES_DIR / "trace_risk_assessor.json"))]
+            )
+            await assess_risks(
+                client, run_config, filesystem_mcp, context, cloudformation
+            )
 
-        set_trace_processors(
-            [FileSpanExporter(str(TRACES_DIR / "trace_mitigation_planner.json"))]
-        )
-        await plan_mitigations(client, run_config, filesystem_mcp)
+        if WorkflowSteps.PLAN in steps:
+            set_trace_processors(
+                [FileSpanExporter(str(TRACES_DIR / "trace_mitigation_planner.json"))]
+            )
+            await plan_mitigations(client, run_config, filesystem_mcp)
 
-        set_trace_processors(
-            [FileSpanExporter(str(TRACES_DIR / "trace_mitigation_auditor.json"))]
-        )
-        await run_mitigation_audit(client, cloudformation, aws_mcp)
+        if WorkflowSteps.AUDIT in steps:
+            set_trace_processors(
+                [FileSpanExporter(str(TRACES_DIR / "trace_mitigation_auditor.json"))]
+            )
+            await run_mitigation_audit(client, cloudformation, aws_mcp)
 
         # Output Consolidation Phase
         typer.echo("\n📊 Converting to CSV...")
@@ -112,11 +127,33 @@ async def run_workflow() -> None:
 
 
 @app.command()
-def run() -> None:
-    """Run the full threat modelling workflow with validation."""
+def run(
+    steps: WorkflowSteps = typer.Option(
+        None,
+        "--steps",
+        help="Select a valid sequential block of steps to run. "
+        "Example: --steps identify-assess-plan",
+    ),
+) -> None:
+    """Run the threat modelling workflow with validation."""
+    if steps is None:
+        raw_choice = questionary.select(
+            "Select the workflow steps to run:",
+            choices=[step.value for step in WorkflowSteps],
+        ).ask()
+
+        # When the user aborts the interactive prompt — pressing Ctrl+C or Ctrl+D during selection
+        if raw_choice is None:
+            raise typer.Exit(0)
+
+        steps = WorkflowSteps(raw_choice)
+
+    steps_to_run = steps.value.split("-")
+    typer.echo(f"▶  Running steps: {', '.join(steps_to_run)}")
     validate_environment()
-    clean_outputs()
-    asyncio.run(run_workflow())
+    if WorkflowSteps.IDENTIFY in steps_to_run:
+        clean_outputs()
+    asyncio.run(run_workflow(steps_to_run))
 
 
 if __name__ == "__main__":
