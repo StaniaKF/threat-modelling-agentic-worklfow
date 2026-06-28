@@ -47,7 +47,7 @@ _FIELD_PREREQUISITES_FOR_FIRST_STEP = {
 }
 
 
-def _validate_threats_json_for_first_step(first_step: str) -> None:
+def validate_threats_json_for_first_step(first_step: str) -> None:
     """Check that threats.json has the fields required by the first step and none from it or later.
 
     - Missing required fields → error (earlier steps haven't run)

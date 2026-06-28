@@ -42,7 +42,7 @@ from utils.setup_commands import (
 )
 from validation.first_step_threats_json_validation import (
     WorkflowSteps,
-    _validate_threats_json_for_first_step,
+    validate_threats_json_for_first_step,
 )
 from workflow_steps.threat_identification import identify_threats
 from workflow_steps.risk_assessment import assess_risks
@@ -74,7 +74,7 @@ async def run_workflow(steps: list[str]) -> None:
         create_initial_threats_json(service_project)
 
     TRACES_DIR.mkdir(parents=True, exist_ok=True)
-    _validate_threats_json_for_first_step(steps[0])
+    validate_threats_json_for_first_step(steps[0])
 
     async with AsyncExitStack() as stack:
         # Initialize Core Runtime Protocol
