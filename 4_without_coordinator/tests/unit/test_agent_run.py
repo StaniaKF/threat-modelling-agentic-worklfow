@@ -105,8 +105,10 @@ class MockRunResult:
 
 
 @pytest.fixture(autouse=True)
-def silence_typer(monkeypatch):
-    monkeypatch.setattr("utils.agent_run.typer.echo", lambda *a, **kw: None)
+def silence_printing(monkeypatch):
+    monkeypatch.setattr("utils.agent_run.print_info", lambda *a, **kw: None)
+    monkeypatch.setattr("utils.agent_run.print_success", lambda *a, **kw: None)
+    monkeypatch.setattr("utils.agent_run.print_error", lambda *a, **kw: None)
 
 
 @pytest.fixture(autouse=True)
@@ -187,7 +189,6 @@ async def test_run_agent_ignores_non_raw_response_events(monkeypatch, capsys):
 async def test_run_agent_retry_prompt_includes_validation_error(mock_runner):
     """On retry, the agent receives a prompt that includes the previous validation error."""
     calls = []
-    original_run_streamed = mock_runner.run_streamed
 
     def capture_call(agent, message, **kwargs):
         calls.append(message)

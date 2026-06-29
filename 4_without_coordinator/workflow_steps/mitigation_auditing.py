@@ -2,11 +2,11 @@ import json
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
-import typer
 from agents import Agent, OpenAIChatCompletionsModel, RunConfig, Runner, trace
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 from utils.agent_factory import create_agent
+from utils.messages_printing import print_info, print_error, print_info_box
 from utils.setup_commands import THREATS_JSON_PATH
 from workflow_agent_prompts.mitigation_auditor import (
     INSTRUCTIONS as MITIGATION_AUDITOR_INSTRUCTIONS,
@@ -62,7 +62,7 @@ async def _execute_threat_audit_attempt(
                 f"Please assess ALL {len(all_mitigations)} mitigations listed above."
             )
         )
-        typer.echo(f"    🔄 Attempt {attempt + 1}...")
+        print_info(f"    🔄 Attempt {attempt + 1}...")
 
         try:
             with trace(f"Mitigation Audit - Threat {index}"):
@@ -70,7 +70,7 @@ async def _execute_threat_audit_attempt(
                     agent, message, run_config=run_config, max_turns=35
                 )
         except Exception as e:
-            typer.echo(f"    ⚠️  Agent error: {type(e).__name__}: {str(e)[:100]}")
+            print_error(f"    ⚠️  Agent error: {type(e).__name__}: {str(e)[:100]}")
             validation_error = str(e)
             continue
 
@@ -94,12 +94,12 @@ async def _execute_threat_audit_attempt(
                 return audit_result
 
             validation_error = f"Missing assessments for: {missing[:3]}..."
-            typer.echo(f"    ✗ Incomplete: {len(missing)} mitigations not assessed")
+            print_error(f"    ✗ Incomplete: {len(missing)} mitigations not assessed")
         else:
             validation_error = "Agent did not return structured output"
-            typer.echo("    ✗ No structured output returned")
+            print_error("    ✗ No structured output returned")
 
-    typer.echo("    ⚠️  Using partial result after retries")
+    print_info("    ⚠️  Using partial result after retries")
     return last_result.final_output_as(ThreatAuditResult) if last_result else None
 
 
@@ -138,7 +138,7 @@ async def run_mitigation_audit(
     threats_json_path: Path = THREATS_JSON_PATH,
 ) -> None:
     """Step 4: Query live AWS configurations dynamically to audit applied mitigations."""
-    typer.echo("\n🔍 Step 4/4: Mitigation Audit")
+    print_info_box("\n🔍 Step 4/4: Mitigation Audit", "Running step")
 
     auditor_run_config = RunConfig(
         model=OpenAIChatCompletionsModel(model=AUDITOR_MODEL, openai_client=client)
@@ -153,12 +153,12 @@ async def run_mitigation_audit(
         stride = threat.get("stride_category", "")
 
         if threat.get("mitigations_already_in_place") is not None:
-            typer.echo(
+            print_info(
                 f"  ⏭️  Threat {i + 1}/{total_threats} ({element}) — already audited, skipping"
             )
             continue
 
-        typer.echo(f"  🔍 Threat {i + 1}/{total_threats}: [{stride}] {element}")
+        print_info(f"  🔍 Threat {i + 1}/{total_threats}: [{stride}] {element}")
 
         auditor_agent = create_agent(
             "Mitigation Auditor Agent",
@@ -188,8 +188,8 @@ async def run_mitigation_audit(
             threats_json_path.write_text(
                 json.dumps(threats_data, indent=2, ensure_ascii=False), encoding="utf-8"
             )
-            typer.echo(
+            print_info(
                 f"    ✓ {element} — {len(threat['mitigations_already_in_place'])} in place, {len(threat['mitigations_missing'])} missing"
             )
         else:
-            typer.echo(f"    ❌ No result for threat {i} — skipping")
+            print_error(f"    ❌ No result for threat {i} — skipping")

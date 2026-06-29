@@ -1,8 +1,6 @@
 import json
 from unittest.mock import MagicMock
 
-import pytest
-
 from utils.get_trace import FileSpanExporter
 
 

@@ -1828,6 +1828,7 @@ dependencies = [
     { name = "openai-agents" },
     { name = "python-dotenv" },
     { name = "questionary" },
+    { name = "rich" },
     { name = "typer" },
 ]
 
@@ -1848,6 +1849,7 @@ requires-dist = [
     { name = "openai-agents", specifier = ">=0.1.0" },
     { name = "python-dotenv", specifier = ">=1.1.0" },
     { name = "questionary", specifier = ">=2.1.1" },
+    { name = "rich", specifier = ">=14.0.0" },
     { name = "typer", specifier = ">=0.12.0" },
 ]
 
