@@ -3,10 +3,15 @@ from pathlib import Path
 
 import typer
 from agents import Agent, RunConfig, Runner
+from rich.console import Console
+from rich.live import Live
+from rich.markdown import Markdown
 
 from constants import MAX_RETRIES
 from utils.messages_printing import print_info, print_success, print_error
 from utils.setup_commands import THREATS_JSON_PATH
+
+_console = Console()
 
 
 def _get_current_threat_count(threats_json_path: Path | None = None) -> int:
@@ -64,11 +69,13 @@ async def run_agent_with_validation(
         result = Runner.run_streamed(
             agent, message, run_config=run_config, max_turns=50
         )
-        # Consume the stream and print to stdout
-        async for event in result.stream_events():
-            if event.type == "raw_response_event" and hasattr(event.data, "delta"):
-                print(event.data.delta, end="", flush=True)
-        print()  # Newline after stream ends
+        # Consume the stream and render as markdown in real-time
+        streamed_text = ""
+        with Live(Markdown(""), console=_console, refresh_per_second=8) as live:
+            async for event in result.stream_events():
+                if event.type == "raw_response_event" and hasattr(event.data, "delta"):
+                    streamed_text += event.data.delta
+                    live.update(Markdown(streamed_text))
 
         # Validate after the agent has fully completed
         validation_error = validator(threat_count, path)
