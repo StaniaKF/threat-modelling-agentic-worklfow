@@ -2,25 +2,26 @@ from enum import StrEnum
 
 import typer
 
+from utils.messages_printing import print_error, print_success
 from validation.validators import _load_threats
 
 
 class WorkflowSteps(StrEnum):
     """Valid sequential blocks of workflow steps."""
 
-    IDENTIFY = "identify"
-    ASSESS = "assess"
-    PLAN = "plan"
-    AUDIT = "audit"
+    IDENTIFY = "Identify"
+    ASSESS = "Assess"
+    PLAN = "Plan"
+    AUDIT = "Audit"
 
-    IDENTIFY_ASSESS = "identify-assess"
-    ASSESS_PLAN = "assess-plan"
-    PLAN_AUDIT = "plan-audit"
+    IDENTIFY_ASSESS = "Identify-Assess"
+    ASSESS_PLAN = "Assess-Plan"
+    PLAN_AUDIT = "Plan-Audit"
 
-    IDENTIFY_ASSESS_PLAN = "identify-assess-plan"
-    ASSESS_PLAN_AUDIT = "assess-plan-audit"
+    IDENTIFY_ASSESS_PLAN = "Identify-Assess-Plan"
+    ASSESS_PLAN_AUDIT = "Assess-Plan-Audit"
 
-    ALL = "identify-assess-plan-audit"
+    ALL = "Identify-Assess-Plan-Audit"
 
 
 _FIELD_PREREQUISITES_FOR_FIRST_STEP = {
@@ -58,13 +59,13 @@ def validate_threats_json_for_first_step(first_step: str) -> None:
 
     data, err = _load_threats()
     if err:
-        typer.echo(f"❌ Cannot start at '{first_step}': {err}", err=True)
+        print_error(f"   ❌  Cannot start at '{first_step}': {err}")
         raise typer.Exit(1)
 
     threats = data.get("threats", [])
     if not threats:
-        typer.echo(
-            f"❌ Cannot start at '{first_step}': threats.json has no threats.", err=True
+        print_error(
+            f"   ❌  Cannot start at '{first_step}': threats.json has no threats."
         )
         raise typer.Exit(1)
 
@@ -76,21 +77,19 @@ def validate_threats_json_for_first_step(first_step: str) -> None:
         # Check for missing prerequisite fields
         missing_fields = required_fields_for_first_step - present_fields
         if missing_fields:
-            typer.echo(
-                f"❌ Threat {i} is missing fields needed for '{first_step}': {missing_fields}\n"
-                f"   Run earlier steps first.",
-                err=True,
+            print_error(
+                f"   ❌  Threat {i} is missing fields needed for '{first_step}': {missing_fields}\n"
+                f"        Run earlier steps first.",
             )
             raise typer.Exit(1)
 
         # Check for any extra fields
         extra_fields = present_fields - required_fields_for_first_step
         if extra_fields:
-            typer.echo(
-                f"❌ Threat {i} contains extra fields {extra_fields} that should not be present for '{first_step}'.\n"
-                f"   Run only the required earlier steps first, or clean outputs and start fresh.",
-                err=True,
+            print_error(
+                f"   ❌  Threat {i} contains extra fields {extra_fields} that should not be present for '{first_step}'.\n"
+                f"       Run only the required earlier steps first, or clean outputs and start fresh."
             )
             raise typer.Exit(1)
 
-    typer.echo(f"   ✓ Prerequisites for '{first_step}' satisfied")
+    print_success(f"   ✓ Prerequisites for '{first_step}' satisfied")

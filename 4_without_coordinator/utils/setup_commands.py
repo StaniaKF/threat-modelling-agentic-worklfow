@@ -7,6 +7,8 @@ from pathlib import Path
 import typer
 from dotenv import load_dotenv
 
+from utils.messages_printing import print_info, print_error
+
 TODAY = date.today().isoformat()
 OUTPUTS_DIR = Path.cwd() / "outputs"
 INPUTS_DIR = Path.cwd() / "inputs"
@@ -20,23 +22,22 @@ def validate_environment() -> None:
 
     missing_vars = [v for v in REQUIRED_ENV_VARS if not os.getenv(v)]
     if missing_vars:
-        typer.echo(
-            f"❌ Missing required environment variables: {', '.join(missing_vars)}\n"
-            f"Set them in your shell or provide a .env file in the current directory.",
-            err=True,
+        print_error(
+            f"   ❌  Missing required environment variables: {', '.join(missing_vars)}\n"
+            f"Set them in your shell or provide a .env file in the current directory."
         )
         raise typer.Exit(1)
 
     if not INPUTS_DIR.exists():
-        typer.echo(f"❌ inputs/ directory not found in {Path.cwd()}", err=True)
+        print_error(f"   ❌  inputs/ directory not found in {Path.cwd()}")
         raise typer.Exit(1)
 
     if not (INPUTS_DIR / "mermaid.md").exists():
-        typer.echo("❌ inputs/mermaid.md not found. This file is required.", err=True)
+        print_error("   ❌  inputs/mermaid.md not found. This file is required.")
         raise typer.Exit(1)
 
     if not (INPUTS_DIR / "context.md").exists():
-        typer.echo("❌ inputs/context.md not found. This file is required.", err=True)
+        print_error("   ❌  inputs/context.md not found. This file is required.")
         raise typer.Exit(1)
 
 
@@ -47,7 +48,7 @@ def clean_outputs() -> None:
     if OUTPUTS_DIR.exists():
         shutil.rmtree(OUTPUTS_DIR)
     OUTPUTS_DIR.mkdir(exist_ok=True)
-    typer.echo(f"📁 Cleaned outputs directory: {OUTPUTS_DIR}")
+    print_info(f"📁 Cleaned outputs directory: {OUTPUTS_DIR}")
 
 
 def read_input(filename: str) -> str:
@@ -68,4 +69,4 @@ def create_initial_threats_json(service_project: str) -> None:
         "threats": [],
     }
     THREATS_JSON_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    typer.echo(f"📄 Created initial outputs/threats.json (service: {service_project})")
+    print_info(f"📄 Created initial outputs/threats.json (service: {service_project})")

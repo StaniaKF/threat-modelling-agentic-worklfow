@@ -1,10 +1,10 @@
 from pathlib import Path
 from typing import Any
-import typer
 from agents import RunConfig, trace
 from openai import AsyncOpenAI
 from utils.agent_factory import create_agent
 from utils.agent_run import run_agent_with_validation
+from utils.messages_printing import print_info_box
 from utils.setup_commands import THREATS_JSON_PATH
 from validation import validate_after_risk_assessor
 from workflow_agent_prompts.risk_assessor import (
@@ -21,7 +21,7 @@ async def assess_risks(
     threats_json_path: Path = THREATS_JSON_PATH,
 ) -> None:
     """Step 2: Cross-reference threat modeling with CloudFormation files to map overall risk vectors."""
-    typer.echo("\n📊 Step 2/4: Risk Assessment")
+    print_info_box("📊 Step 2/4: Risk Assessment", "Running step")
     agent = create_agent(
         "Risk Assessor Agent", RISK_ASSESSOR_INSTRUCTIONS, client, [mcp_server]
     )

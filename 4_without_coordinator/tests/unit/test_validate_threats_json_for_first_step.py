@@ -1,5 +1,5 @@
 """
-Unit tests for _validate_threats_json_for_first_step.
+Unit tests for validate_threats_json_for_first_step.
 
 Tests the prerequisite validation logic against threats.json in all states:
 - After identify (has stride_category, element, threat, attack_method)
@@ -59,39 +59,39 @@ def _threat_after_audit():
     }
 
 
-# --- first_step = "identify" (always passes, no-op) ---
+# --- first_step = "Identify" (always passes, no-op) ---
 
 
 def test_identify_always_passes_no_file_needed(patched_threats_json):
     """identify is the first step — no prerequisites, no file read."""
-    validate_threats_json_for_first_step("identify")
+    validate_threats_json_for_first_step("Identify")
 
 
-# --- first_step = "assess" ---
+# --- first_step = "Assess" ---
 
 
 def test_assess_passes_with_correct_prerequisites(patched_threats_json):
     """After identify, threats.json has exactly the fields assess needs."""
     write_threats(patched_threats_json, [_threat_after_identify()])
-    validate_threats_json_for_first_step("assess")
+    validate_threats_json_for_first_step("Assess")
 
 
 def test_assess_fails_when_file_missing(patched_threats_json, capsys):
     """No threats.json at all."""
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("assess")
+        validate_threats_json_for_first_step("Assess")
     captured = capsys.readouterr()
-    assert "Cannot start at 'assess'" in captured.err
-    assert "threats.json not found" in captured.err
+    assert "Cannot start at" in captured.out
+    assert "not found" in captured.out
 
 
 def test_assess_fails_when_threats_empty(patched_threats_json, capsys):
     """threats.json exists but has no threats."""
     write_threats(patched_threats_json, [])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("assess")
+        validate_threats_json_for_first_step("Assess")
     captured = capsys.readouterr()
-    assert "no threats" in captured.err
+    assert "no threats" in captured.out
 
 
 def test_assess_fails_when_missing_required_field(patched_threats_json, capsys):
@@ -100,10 +100,10 @@ def test_assess_fails_when_missing_required_field(patched_threats_json, capsys):
     del threat["stride_category"]
     write_threats(patched_threats_json, [threat])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("assess")
+        validate_threats_json_for_first_step("Assess")
     captured = capsys.readouterr()
-    assert "missing" in captured.err.lower()
-    assert "stride_category" in captured.err
+    assert "missing" in captured.out.lower()
+    assert "stride_category" in captured.out
 
 
 def test_assess_fails_when_required_field_is_null(patched_threats_json, capsys):
@@ -112,60 +112,60 @@ def test_assess_fails_when_required_field_is_null(patched_threats_json, capsys):
     threat["element"] = None
     write_threats(patched_threats_json, [threat])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("assess")
+        validate_threats_json_for_first_step("Assess")
     captured = capsys.readouterr()
-    assert "element" in captured.err
+    assert "element" in captured.out
 
 
 def test_assess_fails_when_extra_fields_present(patched_threats_json, capsys):
     """File already has impact/likelihood/risk — assess was already run."""
     write_threats(patched_threats_json, [_threat_after_assess()])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("assess")
+        validate_threats_json_for_first_step("Assess")
     captured = capsys.readouterr()
-    assert "extra fields" in captured.err
+    assert "extra fields" in captured.out
 
 
 def test_assess_fails_when_all_steps_already_run(patched_threats_json, capsys):
     """File has all fields — full pipeline was already run."""
     write_threats(patched_threats_json, [_threat_after_audit()])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("assess")
+        validate_threats_json_for_first_step("Assess")
     captured = capsys.readouterr()
-    assert "extra fields" in captured.err
+    assert "extra fields" in captured.out
 
 
-# --- first_step = "plan" ---
+# --- first_step = "Plan" ---
 
 
 def test_plan_passes_with_correct_prerequisites(patched_threats_json):
     """After assess, threats.json has exactly the fields plan needs."""
     write_threats(patched_threats_json, [_threat_after_assess()])
-    validate_threats_json_for_first_step("plan")
+    validate_threats_json_for_first_step("Plan")
 
 
 def test_plan_fails_when_file_missing(patched_threats_json, capsys):
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("plan")
+        validate_threats_json_for_first_step("Plan")
     captured = capsys.readouterr()
-    assert "Cannot start at 'plan'" in captured.err
+    assert "Cannot start at" in captured.out
 
 
 def test_plan_fails_when_threats_empty(patched_threats_json, capsys):
     write_threats(patched_threats_json, [])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("plan")
+        validate_threats_json_for_first_step("Plan")
     captured = capsys.readouterr()
-    assert "no threats" in captured.err
+    assert "no threats" in captured.out
 
 
 def test_plan_fails_when_only_identify_has_run(patched_threats_json, capsys):
     """Missing impact, likelihood, risk — assess hasn't run."""
     write_threats(patched_threats_json, [_threat_after_identify()])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("plan")
+        validate_threats_json_for_first_step("Plan")
     captured = capsys.readouterr()
-    assert "missing" in captured.err.lower()
+    assert "missing" in captured.out.lower()
 
 
 def test_plan_fails_when_risk_is_null(patched_threats_json, capsys):
@@ -174,68 +174,68 @@ def test_plan_fails_when_risk_is_null(patched_threats_json, capsys):
     threat["risk"] = None
     write_threats(patched_threats_json, [threat])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("plan")
+        validate_threats_json_for_first_step("Plan")
     captured = capsys.readouterr()
-    assert "risk" in captured.err
+    assert "risk" in captured.out
 
 
 def test_plan_fails_when_extra_fields_present(patched_threats_json, capsys):
     """File already has all_possible_mitigations — plan was already run."""
     write_threats(patched_threats_json, [_threat_after_plan()])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("plan")
+        validate_threats_json_for_first_step("Plan")
     captured = capsys.readouterr()
-    assert "extra fields" in captured.err
+    assert "extra fields" in captured.out
 
 
 def test_plan_fails_when_all_steps_already_run(patched_threats_json, capsys):
     write_threats(patched_threats_json, [_threat_after_audit()])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("plan")
+        validate_threats_json_for_first_step("Plan")
     captured = capsys.readouterr()
-    assert "extra fields" in captured.err
+    assert "extra fields" in captured.out
 
 
-# --- first_step = "audit" ---
+# --- first_step = "Audit" ---
 
 
 def test_audit_passes_with_correct_prerequisites(patched_threats_json):
     """After plan, threats.json has exactly the fields audit needs."""
     write_threats(patched_threats_json, [_threat_after_plan()])
-    validate_threats_json_for_first_step("audit")
+    validate_threats_json_for_first_step("Audit")
 
 
 def test_audit_fails_when_file_missing(patched_threats_json, capsys):
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("audit")
+        validate_threats_json_for_first_step("Audit")
     captured = capsys.readouterr()
-    assert "Cannot start at 'audit'" in captured.err
+    assert "Cannot start at" in captured.out
 
 
 def test_audit_fails_when_threats_empty(patched_threats_json, capsys):
     write_threats(patched_threats_json, [])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("audit")
+        validate_threats_json_for_first_step("Audit")
     captured = capsys.readouterr()
-    assert "no threats" in captured.err
+    assert "no threats" in captured.out
 
 
 def test_audit_fails_when_only_identify_has_run(patched_threats_json, capsys):
     """Missing impact, likelihood, risk, all_possible_mitigations."""
     write_threats(patched_threats_json, [_threat_after_identify()])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("audit")
+        validate_threats_json_for_first_step("Audit")
     captured = capsys.readouterr()
-    assert "missing" in captured.err.lower()
+    assert "missing" in captured.out.lower()
 
 
 def test_audit_fails_when_only_assess_has_run(patched_threats_json, capsys):
     """Missing all_possible_mitigations — plan hasn't run."""
     write_threats(patched_threats_json, [_threat_after_assess()])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("audit")
+        validate_threats_json_for_first_step("Audit")
     captured = capsys.readouterr()
-    assert "missing" in captured.err.lower()
+    assert "missing" in captured.out.lower()
 
 
 def test_audit_fails_when_all_possible_mitigations_is_null(
@@ -245,18 +245,18 @@ def test_audit_fails_when_all_possible_mitigations_is_null(
     threat["all_possible_mitigations"] = None
     write_threats(patched_threats_json, [threat])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("audit")
+        validate_threats_json_for_first_step("Audit")
     captured = capsys.readouterr()
-    assert "all_possible_mitigations" in captured.err
+    assert "all_possible_mitigations" in captured.out
 
 
 def test_audit_fails_when_extra_fields_present(patched_threats_json, capsys):
     """File already has audit output — audit was already run."""
     write_threats(patched_threats_json, [_threat_after_audit()])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("audit")
+        validate_threats_json_for_first_step("Audit")
     captured = capsys.readouterr()
-    assert "extra fields" in captured.err
+    assert "extra fields" in captured.out
 
 
 # --- Multiple threats ---
@@ -269,13 +269,13 @@ def test_multiple_threats_fails_on_second_missing_fields(patched_threats_json, c
     del bad["attack_method"]
     write_threats(patched_threats_json, [good, bad])
     with pytest.raises(TyperExit):
-        validate_threats_json_for_first_step("assess")
+        validate_threats_json_for_first_step("Assess")
     captured = capsys.readouterr()
-    assert "Threat 1" in captured.err
-    assert "attack_method" in captured.err
+    assert "Threat 1" in captured.out
+    assert "attack_method" in captured.out
 
 
 def test_multiple_threats_passes_when_all_have_prerequisites(patched_threats_json):
     threats = [_threat_after_assess() for _ in range(5)]
     write_threats(patched_threats_json, threats)
-    validate_threats_json_for_first_step("plan")
+    validate_threats_json_for_first_step("Plan")

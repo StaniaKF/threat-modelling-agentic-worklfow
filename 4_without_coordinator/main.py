@@ -32,6 +32,12 @@ from constants import AWS_MCP_PARAMS, FILESYSTEM_MCP_PARAMS, MODEL
 from utils.from_json_to_csv_converter import convert_to_csv_from_file
 from utils.agent_factory import create_client
 from utils.get_trace import FileSpanExporter
+from utils.messages_printing import (
+    print_info,
+    print_info_box,
+    print_success_box,
+    print_success,
+)
 from utils.parsers import extract_service_name
 from utils.setup_commands import (
     OUTPUTS_DIR,
@@ -89,7 +95,7 @@ async def run_workflow(steps: list[str]) -> None:
             )
         )
         aws_tools = await aws_mcp.list_tools()
-        typer.echo(f"   ✓ AWS MCP ready ({len(aws_tools)} tools)")
+        print_info(f"   ✓ AWS MCP ready ({len(aws_tools)} tools)")
 
         # Sequential Workflow Stages Execution
         if WorkflowSteps.IDENTIFY in steps:
@@ -119,11 +125,11 @@ async def run_workflow(steps: list[str]) -> None:
             await run_mitigation_audit(client, cloudformation, aws_mcp)
 
         # Output Consolidation Phase
-        typer.echo("\n📊 Converting to CSV...")
+        print_info("   📊 Converting to CSV...")
         csv_result = convert_to_csv_from_file()
-        typer.echo(f"   ✓ {csv_result}")
+        print_success(f"   ✓ {csv_result}")
 
-    typer.echo(f"\n✅ Done. Outputs written to: {OUTPUTS_DIR}")
+    print_success_box(f"✅  Outputs written to: {OUTPUTS_DIR}", "Done")
 
 
 @app.command()
@@ -132,7 +138,7 @@ def run(
         None,
         "--steps",
         help="Select a valid sequential block of steps to run. "
-        "Example: --steps identify-assess-plan",
+        "Example: --steps Identify-Assess-Plan",
     ),
 ) -> None:
     """Run the threat modelling workflow with validation."""
@@ -149,10 +155,14 @@ def run(
         steps = WorkflowSteps(raw_choice)
 
     steps_to_run = steps.value.split("-")
-    typer.echo(f"▶  Running steps: {', '.join(steps_to_run)}")
+
+    print_info_box(f"▶  {', '.join(steps_to_run)}", "Running steps")
+
     validate_environment()
+
     if WorkflowSteps.IDENTIFY in steps_to_run:
         clean_outputs()
+
     asyncio.run(run_workflow(steps_to_run))
 
 

@@ -67,23 +67,23 @@ aws sso login
 By default (with no `--steps` flag), an interactive menu lets you pick which steps to run. To run the full pipeline non-interactively:
 
 ```bash
-uv run threat-model --steps identify-assess-plan-audit
+uv run threat-model --steps Identify-Assess-Plan-Audit
 ```
 
 You can run a subset of the pipeline by passing any contiguous block of steps:
 
 | `--steps` value              | What runs                          |
 |------------------------------|------------------------------------|
-| `identify`                   | Threat identification only         |
-| `assess`                     | Risk assessment only               |
-| `plan`                       | Mitigation planning only           |
-| `audit`                      | Mitigation auditing only           |
-| `identify-assess`            | Steps 1–2                          |
-| `assess-plan`                | Steps 2–3                          |
-| `plan-audit`                 | Steps 3–4                          |
-| `identify-assess-plan`       | Steps 1–3                          |
-| `assess-plan-audit`          | Steps 2–4                          |
-| `identify-assess-plan-audit` | Full pipeline (all 4 steps)        |
+| `Identify`                   | Threat identification only         |
+| `Assess`                     | Risk assessment only               |
+| `Plan`                       | Mitigation planning only           |
+| `Audit`                      | Mitigation auditing only           |
+| `Identify-Assess`            | Steps 1–2                          |
+| `Assess-Plan`                | Steps 2–3                          |
+| `Plan-Audit`                 | Steps 3–4                          |
+| `Identify-Assess-Plan`       | Steps 1–3                          |
+| `Assess-Plan-Audit`          | Steps 2–4                          |
+| `Identify-Assess-Plan-Audit` | Full pipeline (all 4 steps)        |
 
 When starting from a step other than `identify`, the CLI validates that `outputs/threats.json` contains the expected fields from earlier steps. If fields are missing (earlier steps haven't run) or unexpected extra fields are present (later steps already ran), it exits with a clear error message.
 
@@ -116,6 +116,7 @@ threat-model  # run from any directory with inputs/ and .env
 │   ├── setup_commands.py            # Environment validation, file helpers
 │   ├── get_trace.py                 # Local trace file exporter
 │   ├── parsers.py                   # Output parsing helpers
+│   ├── messages_printing.py         # Rich-based console output helpers
 │   └── from_json_to_csv_converter.py  # JSON → pipe-delimited CSV
 ├── validation/
 │   └── validators.py                # Programmatic validators + risk matrix
@@ -126,6 +127,8 @@ threat-model  # run from any directory with inputs/ and .env
 │       ├── test_setup_commands.py
 │       ├── test_agent_run.py
 │       ├── test_validators.py
+│       ├── test_validate_threats_json_for_first_step.py
+│       ├── test_messages_printing.py
 │       ├── test_get_trace.py
 │       └── test_convert_to_csv.py
 ├── workflow_agent_tests/            # Integration tests for individual agents (LLM calls)
